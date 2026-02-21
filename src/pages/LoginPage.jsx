@@ -19,19 +19,16 @@ export default function LoginPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("Navigation check:", {
+      authLoading,
+      hasUser: !!currentUser,
+      email: currentUser?.email,
+    });
     if (!authLoading && currentUser) {
-      navigate("/dashboard");
-    } else if (!authLoading && !currentUser) {
-      console.log("No user after redirect, staying on login");
+      console.log("Navigating to dashboard...");
+      navigate("/dashboard", { replace: true });
     }
   }, [authLoading, currentUser, navigate]);
-
-  useEffect(() => {
-    console.log("Auth state:", {
-      authLoading,
-      currentUser: currentUser?.email,
-    });
-  }, [authLoading, currentUser]);
 
   /**
    * Validate email format

@@ -119,17 +119,34 @@ export function AuthProvider({ children }) {
   }
 
   /**
-   * Sign in with Google (redirect-only to avoid COOP issues)
+   * Sign in with Google using popup (better for debugging)
    */
   async function loginWithGoogle() {
     try {
       setError(null);
-      console.log("Initiating Google redirect sign-in...");
+      console.log("Initiating Google popup sign-in...");
       await setPersistence(auth, browserLocalPersistence);
-      await signInWithRedirect(auth, googleProvider);
-      return null;
+      
+      const { signInWithPopup } = await import("firebase/auth");
+      const result = await signInWithPopup(auth, googleProvider);
+      
+      console.log("Google sign-in successful:", result.user.email);
+      
+      // Create profile if doesn't exist
+      const profile = await getUserProfile(result.user.uid);
+      if (!profile) {
+        console.log("Creating new user profile...");
+        await createUserProfile(result.user.uid, {
+          email: result.user.email,
+          displayName: result.user.displayName || result.user.email.split("@")[0],
+          authProvider: "google",
+          photoURL: result.user.photoURL,
+        });
+      }
+      
+      return result.user;
     } catch (error) {
-      console.error("Google redirect error:", error);
+      console.error("Google popup error:", error);
       setError(error.message);
       throw error;
     }
@@ -148,23 +165,16 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Subscribe to auth state changes
+  // Subscribe to auth state changes and handle redirect result
   useEffect(() => {
+    let isMounted = true;
+
+    // Set persistence
     setPersistence(auth, browserLocalPersistence).catch((persistenceError) => {
       console.error("Auth persistence error:", persistenceError);
     });
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setLoading(false);
-    });
-
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-
+    // Handle redirect result first
     async function handleRedirectResult() {
       try {
         console.log("Checking for redirect result...");
@@ -177,9 +187,7 @@ export function AuthProvider({ children }) {
 
         if (result?.user) {
           console.log("Redirect result found for user:", result.user.email);
-          setCurrentUser(result.user);
-          setLoading(false);
-
+          
           const profile = await getUserProfile(result.user.uid);
           if (!profile) {
             console.log("Creating new user profile...");
@@ -196,13 +204,24 @@ export function AuthProvider({ children }) {
         }
       } catch (redirectError) {
         console.error("Google redirect result error:", redirectError);
+        setError(redirectError.message);
       }
     }
 
     handleRedirectResult();
 
+    // Subscribe to auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (isMounted) {
+        console.log("Auth state changed:", user?.email || "no user");
+        setCurrentUser(user);
+        setLoading(false);
+      }
+    });
+
     return () => {
       isMounted = false;
+      unsubscribe();
     };
   }, []);
 
