@@ -7,12 +7,12 @@ import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 // Firebase configuration object
 // Replace these values with your actual Firebase project credentials
 const firebaseConfig = {
-  apiKey: "AIzaSyCMCyiop09cCLTHRyWHfgWozEXlFHNRIv0",
-  authDomain: "email-generator-d6ff0.firebaseapp.com",
-  projectId: "email-generator-d6ff0",
-  storageBucket: "email-generator-d6ff0.firebasestorage.app",
-  messagingSenderId: "324347790092",
-  appId: "1:324347790092:web:248b27f361242e0913ff29",
+  apiKey: "AIzaSyBKfFzFBtCAami0gwUDnyHF_FYV-1N82yQ",
+  authDomain: "email-generator-1f634.firebaseapp.com",
+  projectId: "email-generator-1f634",
+  storageBucket: "email-generator-1f634.firebasestorage.app",
+  messagingSenderId: "601443571394",
+  appId: "1:601443571394:web:153f324829c4622e9fcd5b",
 };
 
 // Initialize Firebase app
