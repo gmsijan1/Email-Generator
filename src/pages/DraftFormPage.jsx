@@ -1,5 +1,7 @@
 // Draft Form Page Component - Fanthom MVP with 2-step onboarding flow
 import { useState } from "react";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import useAuth from "../contexts/useAuth";
 import { generateEmailDrafts } from "../services/openaiService";
