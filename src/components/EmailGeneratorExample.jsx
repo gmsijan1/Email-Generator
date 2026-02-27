@@ -4,13 +4,14 @@ import {
   generateEmailWithCloudFunction,
   generateMultipleEmailsWithCloudFunction,
 } from "../services/cloudFunctionService";
+import TemporaryNotification from "./TemporaryNotification";
 
 export default function EmailGeneratorExample() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [generatedEmail, setGeneratedEmail] = useState("");
   const [generatedDrafts, setGeneratedDrafts] = useState([]);
-  const [error, setError] = useState("");
+  const [notification, setNotification] = useState(null);
   const [activeTab, setActiveTab] = useState("single"); // "single" or "multiple"
 
   /**
@@ -20,22 +21,25 @@ export default function EmailGeneratorExample() {
     e.preventDefault();
 
     if (!prompt.trim()) {
-      setError("Please enter a prompt");
+      setNotification({ message: "Please enter a prompt", type: "error" });
       return;
     }
 
     try {
-      setError("");
+      setNotification(null);
       setLoading(true);
 
       // Call Cloud Function
       const result = await generateEmailWithCloudFunction(prompt);
       setGeneratedEmail(result);
+      setNotification({ message: "Draft generated!", type: "success" });
     } catch (err) {
       console.error("Error generating email:", err);
-      setError(
-        err.message || "Failed to generate email. Check console for details.",
-      );
+      setNotification({
+        message:
+          err.message || "Failed to generate email. Check console for details.",
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -48,22 +52,26 @@ export default function EmailGeneratorExample() {
     e.preventDefault();
 
     if (!prompt.trim()) {
-      setError("Please enter a prompt");
+      setNotification({ message: "Please enter a prompt", type: "error" });
       return;
     }
 
     try {
-      setError("");
+      setNotification(null);
       setLoading(true);
 
       // Call Cloud Function with count = 3
       const results = await generateMultipleEmailsWithCloudFunction(prompt, 3);
       setGeneratedDrafts(results);
+      setNotification({ message: "Drafts generated!", type: "success" });
     } catch (err) {
       console.error("Error generating drafts:", err);
-      setError(
-        err.message || "Failed to generate drafts. Check console for details.",
-      );
+      setNotification({
+        message:
+          err.message ||
+          "Failed to generate drafts. Check console for details.",
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -72,21 +80,11 @@ export default function EmailGeneratorExample() {
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto", padding: "20px" }}>
       <h1>Email Generator - Cloud Function Example</h1>
-
-      {error && (
-        <div
-          style={{
-            background: "#fee",
-            border: "1px solid #fcc",
-            color: "#c33",
-            padding: "12px",
-            borderRadius: "6px",
-            marginBottom: "20px",
-          }}
-        >
-          {error}
-        </div>
-      )}
+      <TemporaryNotification
+        message={notification?.message}
+        type={notification?.type}
+        onHide={() => setNotification(null)}
+      />
 
       {/* Tab Navigation */}
       <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
@@ -177,7 +175,10 @@ export default function EmailGeneratorExample() {
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(generatedEmail);
-                  alert("Copied to clipboard!");
+                  setNotification({
+                    message: "Copied to clipboard!",
+                    type: "success",
+                  });
                 }}
                 style={{
                   marginTop: "12px",
@@ -264,7 +265,10 @@ export default function EmailGeneratorExample() {
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(draft);
-                        alert(`Draft ${index + 1} copied to clipboard!`);
+                        setNotification({
+                          message: `Draft ${index + 1} copied!`,
+                          type: "success",
+                        });
                       }}
                       style={{
                         marginTop: "12px",

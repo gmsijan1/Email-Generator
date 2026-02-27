@@ -1,9 +1,99 @@
 /**
+ * Inference helper functions for intelligent default handling
+ */
+
+export function inferPrimaryPain({ prospectTitle }) {
+  if (!prospectTitle) return "low outbound effectiveness";
+
+  const title = prospectTitle.toLowerCase();
+
+  if (
+    title.includes("sales") ||
+    title.includes("sdr") ||
+    title.includes("vp")
+  ) {
+    return "low reply rates and inconsistent outbound performance";
+  }
+  if (title.includes("founder") || title.includes("ceo")) {
+    return "pipeline unpredictability and manual outreach inefficiency";
+  }
+  if (title.includes("marketing")) {
+    return "inconsistent lead quality and attribution challenges";
+  }
+  if (title.includes("customer")) {
+    return "customer retention challenges and churn acceleration";
+  }
+
+  return "operational inefficiency in current workflow";
+}
+
+export function inferCategory(productService) {
+  if (!productService) return "Sales revenue operations";
+
+  const service = productService.toLowerCase();
+
+  if (
+    service.includes("email") ||
+    service.includes("outbound") ||
+    service.includes("sales")
+  ) {
+    return "B2B SaaS outbound";
+  }
+  if (service.includes("automation") || service.includes("workflow")) {
+    return "Sales automation";
+  }
+  if (
+    service.includes("pipeline") ||
+    service.includes("revenue") ||
+    service.includes("crm")
+  ) {
+    return "Revenue operations";
+  }
+
+  return "B2B SaaS sales operations";
+}
+
+export function inferSocialProofStyle(socialProofResult, socialProofClient) {
+  if (socialProofResult) {
+    return "metric-driven case study result";
+  }
+  if (socialProofClient) {
+    return "peer company credibility validation";
+  }
+  return "industry pattern validation";
+}
+
+/**
  * Elite Sales Email Prompt Template - MASTER_PROMPT integrated
  *
- * Generates the full MASTER_PROMPT text with injected state.
+ * Generates the full MASTER_PROMPT text with injected inferred and explicit values.
  * Returns the prompt string, exactly as in MASTER_PROMPT.
  */
+
+export function buildSignatureLine3({ line3Input = "" }) {
+  const normalizedInput = line3Input.replace(/\s+/g, " ").trim();
+
+  if (!normalizedInput) {
+    return "";
+  }
+
+  const urlPattern = /https?:\/\/[^\s]+/i;
+
+  function detectLine3Type(input) {
+    if (urlPattern.test(input)) {
+      return "link";
+    }
+    return "credibility";
+  }
+
+  const looksLikeLink = detectLine3Type(normalizedInput) === "link";
+
+  if (looksLikeLink) {
+    return `Book a quick call: ${normalizedInput}`;
+  }
+
+  return normalizedInput;
+}
 
 export function buildEmailPrompt({
   // Required fields
@@ -15,40 +105,32 @@ export function buildEmailPrompt({
   prospectTitle,
   ctaType,
   tone,
-
-  // Strongly recommended (with defaults)
-  keyDifferentiator = "built specifically for SaaS outbound",
-  contextTrigger = "hiring SDRs or pipeline growth focus",
-  freeValueOffer = "free 3-email sequence teardown",
-  socialProofClient = "similar SaaS companies",
-
-  // Optional (with defaults)
-  category = "SaaS outbound optimization",
-  targetDepartment = "Sales/SDR",
-  currentWorkflow = "HubSpot + manual emails",
-  socialProofResult = "higher demo rates",
-  scarcity = null,
-  corePainPoints = [
-    "outbound volume but replies stuck under 5%",
-    "leads slipping through pipeline",
-  ],
-  primaryPain = corePainPoints[0] || "Not provided",
-  socialProofStyle = "case study + metrics",
-  authorityLine = "B2B SaaS outbound expert",
-  extraPersonalization = "",
+  // Signature line 3 inputs
+  line3Input = "",
+  // Optional fields with intelligent defaults
+  keyDifferentiator = "",
+  socialProofClient = "",
+  category = "",
+  socialProofResult = "",
+  primaryPain = "",
 }) {
-  // ...existing code...
+  // Apply intelligent inference logic
   const effectiveDifferentiator =
-    keyDifferentiator || "built specifically for SaaS outbound";
-  const effectiveTrigger =
-    contextTrigger || "hiring SDRs or pipeline growth focus";
-  const effectiveFreeValue = freeValueOffer || "free 3-email sequence teardown";
-  const effectiveClientProof = socialProofClient || "similar SaaS companies";
-  const effectiveCategory = category || "SaaS outbound optimization";
-  const effectiveDepartment = targetDepartment || "Sales/SDR";
-  const effectiveWorkflow = currentWorkflow || "HubSpot + manual emails";
-  const effectiveResult = socialProofResult || "higher demo rates";
-  // primaryPain is now passed in props
+    keyDifferentiator ||
+    "Built specifically for outbound sales teams, not generic AI writing";
+  const effectiveClientProof = socialProofClient || "";
+  const effectiveCategory = category || inferCategory(productService);
+  const effectiveResult = socialProofResult || "";
+  const effectivePrimaryPain =
+    primaryPain ||
+    inferPrimaryPain({
+      prospectTitle,
+    });
+  const effectiveSocialProofStyle = inferSocialProofStyle(
+    socialProofResult,
+    socialProofClient,
+  );
+  const signatureLine3 = buildSignatureLine3({ line3Input });
 
   return `
   
@@ -60,57 +142,47 @@ You are an elite B2B sales copywriter and persuasion specialist for B2B SaaS. Yo
 - Product/Service: ${productService}
 - Key Differentiator: ${effectiveDifferentiator}
 - Prospect: ${prospectFirstName}, ${prospectTitle} at ${prospectCompany}
-- Context/Trigger: ${effectiveTrigger}
 - Category: ${effectiveCategory}
-- Target Department: ${effectiveDepartment}
-- Current Workflow: ${effectiveWorkflow}
-- Social Proof: ${effectiveClientProof} → ${effectiveResult}
-- Social Proof Style: ${socialProofStyle}
--Free Value Offer: lead with free value in body; P.S. optional if scarcity provided
-${scarcity ? `- Scarcity: include numeric urgency (e.g., "Only 3 teardown slots this week")` : ""}- Tone: ${tone}
+- Social Proof: ${effectiveClientProof || "(inferred from product market)"} → ${effectiveResult || "(inferred from category)"}
+- Social Proof Style: ${effectiveSocialProofStyle}
+- Tone: ${tone}
 - CTA Type: ${ctaType}
-- Core Pain Points (1 PRIMARY, 2-3 total): ${corePainPoints && corePainPoints.length ? corePainPoints.join(", ") : ""}
-- PRIMARY Pain: ${primaryPain}
-- Extra Personalization: ${extraPersonalization}
+- PRIMARY Pain: ${effectivePrimaryPain}
 
 ## SAFETY RULES
 - Do not invent prospect details, metrics, client names/results
 - Do not promise unprovided metrics
 - Avoid AI-sounding text or meta-comments
 - No all-caps words; no repeated punctuation
-- Max 1 link; no attachments; no spammy words
+- No spammy words
 
 ## STRUCTURE RULES
 - SUBJECT: generate separately; 5-7 words, 35-50 characters, include prospect first name or company; reference reply/replies/demo/pipeline/meetings. Must match body context and prompt rules.
-- BODY: 75-100 words, 3-5 sentences, ~10–14 words per sentence, trim slightly if needed for clarity and flow, 2-3 paragraphs (no block >3 lines), 6th grade reading level, jargon OK: pipeline/SDR/outbound/demo booking; avoid buzzwords; mention workflow context if provided
+- BODY: 75-100 words, 3-5 sentences, ~10–14 words per sentence, trim slightly if needed for clarity and flow, 2-3 paragraphs (no block >3 lines), 6th grade reading level, jargon OK: pipeline/SDR/outbound/demo booking; avoid buzzwords
 - FRAMEWORK: PAS
-  - Hook (≤20 words): use exact context trigger
-  - Problem (≤20 words): PRIMARY pain (${primaryPain})
-  - Agitate (≤20 words): quantify cost explicitly, using numeric or percentage impact if possible (e.g., "70% of leads never enter pipeline"). Include time-bound urgency if scarcity is provided.
-  - Solution + Proof (≤25 words): include social proof (${socialProofStyle})
+  - Hook (≤20 words): reference prospect role relevance
+  - Problem (≤20 words): PRIMARY pain (${effectivePrimaryPain})
+  - Agitate (≤20 words): quantify cost explicitly, using numeric or percentage impact if possible (e.g., "70% of leads never enter pipeline").
+  - Solution + Proof (≤25 words): include social proof using ${effectiveSocialProofStyle}
 - CTA (8-20 words): high-conversion, 1–3 word answer preferred; avoid open-ended questions
 
 ## PSYCHOLOGICAL TRIGGERS
-- Reciprocity: free teardown/Loom first
+- Reciprocity: offer a concise, relevant free value
 - Social Proof: 1 SaaS client (50-100 employees)
 - Loss Aversion: quantify lost leads
 - Authority: signature shows SaaS outbound expertise
 - Commitment: yes/no CTA
-- Scarcity: P.S. only if provided
 
 ## FORMATTING
 - Plain text only
-- Max 1 link
 - Signature exactly 3 lines:
   ${senderNameTitle}
   ${companyName}
-  B2B SaaS outbound | ${authorityLine}
-- Optional P.S. ≤18 words if scarcity provided
+  ${signatureLine3} (consise, 6-10 words only)
 
 ## OUTPUT
 - SUBJECT LINE (35-50 chars)
 - EMAIL BODY (exactly 75-100 words, 2-3 paragraphs)
-- P.S. if scarcity provided
 - ANALYSIS (4 bullets): PRIMARY pain, personalization detail, 3 psych triggers, CTA friction
 - VARIANT B: different subject/hook, same analysis
 
@@ -119,16 +191,17 @@ ${scarcity ? `- Scarcity: include numeric urgency (e.g., "Only 3 teardown slots 
 - Warm/2nd touch: follow provided patterns for 15min walkthrough or sequence teardown
 
 ## QUALITY CHECK (CHECK - FAIL ANY = REWRITE IMMEDIATELY)
-- Word count 75-100 
-- Subject 35-50 chars 
+- Word count 75-100 words (max 120 for cold outreach)
+- Subject 35-50 chars, 5-7 words
 - 3-5 sentences, 2-3 paragraphs
-- Senior SaaS → senior SaaS 
-- Reciprocity + social proof + loss aversion 
-- Answerable CTA 1-3 words 
-- Plain text, max 1 link, no spam triggers 
-- Uses exact context/trigger 
-- Zero AI/meta comments 
-- USE ONLY PROVIDED CONTEXT. DO NOT ASSUME OR FILL ANY MISSING FIELDS.
+- Senior SaaS → senior SaaS tone
+- Reciprocity + social proof + loss aversion
+- Answerable CTA 1-3 words (one clear CTA only)
+- Plain text, no spam triggers
+- Never say "based on assumptions" or mention defaults
+- Zero AI/meta comments or self-reference
+- Zero generic templates or buzzwords
+- Uses provided context, complements with inferred persona-relevant details
 
 `.trim();
 }

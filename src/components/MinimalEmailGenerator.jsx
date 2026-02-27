@@ -13,12 +13,13 @@
 import { useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../firebase";
+import TemporaryNotification from "./TemporaryNotification";
 
 export default function MinimalEmailGenerator() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [generatedEmail, setGeneratedEmail] = useState("");
+  const [notification, setNotification] = useState(null);
 
   /**
    * Handle form submission
@@ -28,12 +29,12 @@ export default function MinimalEmailGenerator() {
 
     // Validate input
     if (!prompt.trim()) {
-      setError("Please enter a prompt");
+      setNotification({ message: "Please enter a prompt", type: "error" });
       return;
     }
 
     try {
-      setError("");
+      setNotification(null);
       setGeneratedEmail("");
       setLoading(true);
 
@@ -54,9 +55,10 @@ export default function MinimalEmailGenerator() {
       if (response.data.success) {
         // Successfully generated email - display result
         setGeneratedEmail(response.data.result);
+        setNotification({ message: "Draft generated!", type: "success" });
       } else {
         // Cloud Function returned error
-        setError("Failed to generate email");
+        setNotification({ message: "Failed to generate email", type: "error" });
       }
     } catch (err) {
       // Network error, authentication error, or Cloud Function error
@@ -64,11 +66,20 @@ export default function MinimalEmailGenerator() {
 
       // Set user-friendly error message
       if (err.code === "unauthenticated") {
-        setError("You must be logged in to generate emails");
+        setNotification({
+          message: "You must be logged in to generate emails",
+          type: "error",
+        });
       } else if (err.code === "invalid-argument") {
-        setError(err.message || "Invalid prompt provided");
+        setNotification({
+          message: err.message || "Invalid prompt provided",
+          type: "error",
+        });
       } else {
-        setError(err.message || "Failed to generate email");
+        setNotification({
+          message: err.message || "Failed to generate email",
+          type: "error",
+        });
       }
     } finally {
       setLoading(false);
@@ -78,6 +89,11 @@ export default function MinimalEmailGenerator() {
   return (
     <div style={{ maxWidth: "700px", margin: "40px auto", padding: "20px" }}>
       <h1>Email Generator</h1>
+      <TemporaryNotification
+        message={notification?.message}
+        type={notification?.type}
+        onHide={() => setNotification(null)}
+      />
       <p style={{ color: "#666" }}>
         Enter a prompt below to generate an email using OpenAI (via Cloud
         Function)
@@ -147,22 +163,6 @@ export default function MinimalEmailGenerator() {
         </button>
       </form>
 
-      {/* ERROR MESSAGE */}
-      {error && (
-        <div
-          style={{
-            padding: "12px 16px",
-            background: "#fee8e8",
-            border: "1px solid #f5c6c6",
-            borderRadius: "6px",
-            color: "#c33",
-            marginBottom: "20px",
-          }}
-        >
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
       {/* RESPONSE DISPLAY */}
       {generatedEmail && (
         <div
@@ -200,7 +200,10 @@ export default function MinimalEmailGenerator() {
           <button
             onClick={() => {
               navigator.clipboard.writeText(generatedEmail);
-              alert("Email copied to clipboard!");
+              setNotification({
+                message: "Copied to clipboard!",
+                type: "success",
+              });
             }}
             style={{
               padding: "10px 16px",

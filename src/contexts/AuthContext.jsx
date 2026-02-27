@@ -1,9 +1,9 @@
 // Authentication Context for managing user state across the application
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { AuthContext } from "./AuthContextInstance";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithRedirect,
   getRedirectResult,
   setPersistence,
   browserLocalPersistence,
@@ -14,17 +14,6 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, googleProvider, db } from "../firebase";
 
 // Create the authentication context
-const AuthContext = createContext({});
-
-// Custom hook to use the auth context
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-};
-
 // AuthProvider component to wrap the app and provide auth state
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -91,6 +80,10 @@ export function AuthProvider({ children }) {
         authProvider: "email",
       });
 
+      // Initialize credits for new user
+      const { initializeCredits } = await import("../services/creditService");
+      await initializeCredits(userCredential.user.uid, 50); // 50 free credits
+
       return userCredential.user;
     } catch (error) {
       setError(error.message);
@@ -126,24 +119,28 @@ export function AuthProvider({ children }) {
       setError(null);
       console.log("Initiating Google popup sign-in...");
       await setPersistence(auth, browserLocalPersistence);
-      
+
       const { signInWithPopup } = await import("firebase/auth");
       const result = await signInWithPopup(auth, googleProvider);
-      
+
       console.log("Google sign-in successful:", result.user.email);
-      
+
       // Create profile if doesn't exist
       const profile = await getUserProfile(result.user.uid);
       if (!profile) {
         console.log("Creating new user profile...");
         await createUserProfile(result.user.uid, {
           email: result.user.email,
-          displayName: result.user.displayName || result.user.email.split("@")[0],
+          displayName:
+            result.user.displayName || result.user.email.split("@")[0],
           authProvider: "google",
           photoURL: result.user.photoURL,
         });
+        // Initialize credits for new user
+        const { initializeCredits } = await import("../services/creditService");
+        await initializeCredits(result.user.uid, 50); // 50 free credits
       }
-      
+
       return result.user;
     } catch (error) {
       console.error("Google popup error:", error);
@@ -187,7 +184,7 @@ export function AuthProvider({ children }) {
 
         if (result?.user) {
           console.log("Redirect result found for user:", result.user.email);
-          
+
           const profile = await getUserProfile(result.user.uid);
           if (!profile) {
             console.log("Creating new user profile...");

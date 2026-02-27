@@ -1,7 +1,7 @@
 // Registration Page Component - Handles new user registration
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+import useAuth from "../contexts/useAuth";
 import "./RegistrationPage.css";
 
 export default function RegistrationPage() {

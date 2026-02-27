@@ -10,36 +10,51 @@
 
 import { useState } from "react";
 import { useCloudFunction } from "../hooks/useCloudFunction";
+import TemporaryNotification from "./TemporaryNotification";
 
 export default function SimpleEmailGenerator() {
   const [prompt, setPrompt] = useState("");
   const {
     execute: generateEmail,
     loading,
-    error,
     result,
   } = useCloudFunction("generateEmail");
+  const [notification, setNotification] = useState(null);
 
   async function handleGenerateEmail(e) {
     e.preventDefault();
 
     if (!prompt.trim()) {
-      alert("Please enter a prompt");
+      setNotification({
+        message: "Please enter a prompt",
+        type: "error",
+      });
       return;
     }
 
     try {
       // Call Cloud Function with just the prompt
       await generateEmail({ prompt });
+      setNotification({ message: "Draft generated!", type: "success" });
     } catch (err) {
       // Error is already set in hook, just need to catch for form handling
       console.error("Generation failed:", err);
+      setNotification({
+        message: err?.message || "Failed to generate email.",
+        type: "error",
+      });
     }
   }
 
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", padding: "20px" }}>
       <h2>Email Generator (Cloud Function)</h2>
+
+      <TemporaryNotification
+        message={notification?.message}
+        type={notification?.type}
+        onHide={() => setNotification(null)}
+      />
 
       {/* Form */}
       <form onSubmit={handleGenerateEmail}>
@@ -84,22 +99,6 @@ export default function SimpleEmailGenerator() {
         </button>
       </form>
 
-      {/* Error Display */}
-      {error && (
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "12px",
-            background: "#fee",
-            border: "1px solid #fcc",
-            borderRadius: "6px",
-            color: "#c33",
-          }}
-        >
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
       {/* Result Display */}
       {result && (
         <div style={{ marginTop: "20px" }}>
@@ -124,7 +123,10 @@ export default function SimpleEmailGenerator() {
             onClick={() => {
               const text = result.result || result;
               navigator.clipboard.writeText(text);
-              alert("Copied to clipboard!");
+              setNotification({
+                message: "Copied to clipboard!",
+                type: "success",
+              });
             }}
             style={{
               marginTop: "12px",

@@ -1,10 +1,10 @@
-// Draft Detail Page Component - View, edit, regenerate, and delete saved drafts
+// Draft Detail Page Component - View, edit, and delete saved drafts
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import { useAuth } from "../contexts/AuthContext";
-import { regenerateEmailDraft } from "../services/openaiService";
+import useAuth from "../contexts/useAuth";
+import TemporaryNotification from "../components/TemporaryNotification";
 import "./DraftDetailPage.css";
 
 export default function DraftDetailPage() {
@@ -12,10 +12,9 @@ export default function DraftDetailPage() {
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [notification, setNotification] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState("");
-  const [isRegenerating, setIsRegenerating] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { currentUser } = useAuth();
@@ -32,18 +31,11 @@ export default function DraftDetailPage() {
       }
 
       try {
-        const docRef = doc(db, "drafts", id);
+        const docRef = doc(db, "users", currentUser.uid, "drafts", id);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
           const draftData = { id: docSnap.id, ...docSnap.data() };
-
-          // Check if draft belongs to current user
-          if (draftData.userId !== currentUser.uid) {
-            setError("You do not have permission to view this draft");
-            setTimeout(() => navigate("/dashboard"), 2000);
-            return;
-          }
 
           setDraft(draftData);
           setEditedText(draftData.generatedText);
@@ -63,55 +55,19 @@ export default function DraftDetailPage() {
   }, [id, currentUser, navigate]);
 
   /**
-   * Handle draft regeneration
-   */
-  async function handleRegenerate() {
-    try {
-      setError("");
-      setSuccess("");
-      setIsRegenerating(true);
-
-      const newDraftText = await regenerateEmailDraft({
-        recipientName: draft.recipientName,
-        recipientEmail: draft.recipientEmail,
-        context: draft.context,
-        goal: draft.goal,
-        tone: draft.tone,
-      });
-
-      // Update draft in Firestore
-      const docRef = doc(db, "drafts", id);
-      await updateDoc(docRef, {
-        generatedText: newDraftText,
-        timestamp: new Date(),
-      });
-
-      setDraft({ ...draft, generatedText: newDraftText });
-      setEditedText(newDraftText);
-      setSuccess("Draft regenerated successfully!");
-    } catch (error) {
-      console.error("Error regenerating draft:", error);
-      setError(
-        error.message || "Failed to regenerate draft. Please try again.",
-      );
-    } finally {
-      setIsRegenerating(false);
-    }
-  }
-
-  /**
    * Handle saving edited draft
    */
   async function handleSaveEdit() {
     if (!editedText.trim()) {
-      return setError("Draft cannot be empty");
+      setNotification({ message: "Draft cannot be empty", type: "error" });
+      return;
     }
 
     try {
       setError("");
-      setSuccess("");
+      setNotification(null);
 
-      const docRef = doc(db, "drafts", id);
+      const docRef = doc(db, "users", currentUser.uid, "drafts", id);
       await updateDoc(docRef, {
         generatedText: editedText,
         timestamp: new Date(),
@@ -119,10 +75,13 @@ export default function DraftDetailPage() {
 
       setDraft({ ...draft, generatedText: editedText });
       setIsEditing(false);
-      setSuccess("Draft updated successfully!");
+      setNotification({ message: "Draft saved!", type: "success" });
     } catch (error) {
       console.error("Error updating draft:", error);
-      setError("Failed to update draft. Please try again.");
+      setNotification({
+        message: "Failed to update draft. Please try again.",
+        type: "error",
+      });
     }
   }
 
@@ -132,14 +91,18 @@ export default function DraftDetailPage() {
   async function handleDelete() {
     try {
       setError("");
-      const docRef = doc(db, "drafts", id);
+      setNotification(null);
+      const docRef = doc(db, "users", currentUser.uid, "drafts", id);
       await deleteDoc(docRef);
 
-      setSuccess("Draft deleted successfully!");
+      setNotification({ message: "Draft deleted!", type: "error" });
       setTimeout(() => navigate("/dashboard"), 1000);
     } catch (error) {
       console.error("Error deleting draft:", error);
-      setError("Failed to delete draft. Please try again.");
+      setNotification({
+        message: "Failed to delete draft. Please try again.",
+        type: "error",
+      });
     }
   }
 
@@ -148,9 +111,10 @@ export default function DraftDetailPage() {
    */
   function handleCopy() {
     navigator.clipboard.writeText(draft.generatedText);
-    setSuccess("Copied to clipboard!");
-    setTimeout(() => setSuccess(""), 2000);
+    setNotification({ message: "Copied to clipboard!", type: "success" });
   }
+
+  const hasChanges = draft && editedText !== draft.generatedText;
 
   /**
    * Format timestamp for display
@@ -214,11 +178,11 @@ export default function DraftDetailPage() {
           </div>
         )}
 
-        {success && (
-          <div className="success-message" role="alert">
-            {success}
-          </div>
-        )}
+        <TemporaryNotification
+          message={notification?.message}
+          type={notification?.type}
+          onHide={() => setNotification(null)}
+        />
 
         {/* Draft Info Card */}
         <div className="info-card">
@@ -229,142 +193,64 @@ export default function DraftDetailPage() {
 
           <div className="info-grid">
             <div className="info-item">
-              <label>Recipient</label>
-              <p>{draft.recipientName}</p>
+              <label>Prospect Name:</label>
+              <p>{draft.prospectFirstName}</p>
             </div>
             <div className="info-item">
-              <label>Email</label>
-              <p>{draft.recipientEmail}</p>
+              <label>Prospect Company:</label>
+              <p>{draft.prospectCompany}</p>
             </div>
             <div className="info-item">
-              <label>Goal</label>
-              <p>{draft.goal}</p>
-            </div>
-            <div className="info-item">
-              <label>Tone</label>
-              <p>{draft.tone}</p>
+              <label>Goal:</label>
+              <p>{draft.ctaType}</p>
             </div>
           </div>
 
-          <div className="info-item full-width">
-            <label>Context</label>
-            <p className="context-text">{draft.context}</p>
-          </div>
+          {draft.context && (
+            <div className="info-item full-width">
+              <label>Context:</label>
+              <p className="context-text">{draft.context}</p>
+            </div>
+          )}
         </div>
 
         {/* Draft Content Card */}
         <div className="content-card">
           <div className="content-header">
             <h2>Generated Email</h2>
-            {!isEditing && (
-              <div className="action-buttons">
-                <button
-                  onClick={handleCopy}
-                  className="btn btn-secondary"
-                  title="Copy to clipboard"
-                >
-                  <svg
-                    className="icon"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                  Copy
-                </button>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="btn btn-secondary"
-                  title="Edit draft"
-                >
-                  <svg
-                    className="icon"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  Edit
-                </button>
-                <button
-                  onClick={handleRegenerate}
-                  className="btn btn-primary"
-                  disabled={isRegenerating}
-                  title="Regenerate draft"
-                >
-                  {isRegenerating ? (
-                    <>
-                      <span className="spinner"></span>
-                      Regenerating...
-                    </>
-                  ) : (
-                    <>
-                      <svg
-                        className="icon"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                        />
-                      </svg>
-                      Regenerate
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
+            <button onClick={handleCopy} className="btn btn-primary">
+              Copy
+            </button>
           </div>
 
-          {isEditing ? (
-            <div className="edit-section">
-              <textarea
-                value={editedText}
-                onChange={(e) => setEditedText(e.target.value)}
-                rows="15"
-                className="edit-textarea"
-              />
-              <div className="edit-actions">
-                <button
-                  onClick={() => {
-                    setIsEditing(false);
-                    setEditedText(draft.generatedText);
-                  }}
-                  className="btn btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button onClick={handleSaveEdit} className="btn btn-primary">
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="draft-content">
-              <pre>{draft.generatedText}</pre>
-            </div>
-          )}
+          <div className="edit-section">
+            <textarea
+              value={editedText}
+              onChange={(e) => {
+                if (!isEditing) setIsEditing(true);
+                setEditedText(e.target.value);
+              }}
+              onFocus={() => setIsEditing(true)}
+              rows="15"
+              className="edit-textarea"
+              readOnly={!isEditing}
+            />
+          </div>
+        </div>
+
+        <div className="detail-actions">
+          <button
+            onClick={handleSaveEdit}
+            className="btn btn-primary"
+            disabled={!hasChanges}
+          >
+            Save Changes
+          </button>
         </div>
 
         {/* Delete Section */}
         <div className="danger-zone">
-          <h3>Danger Zone</h3>
+          <h3>Remove Draft</h3>
           {!showDeleteConfirm ? (
             <button
               onClick={() => setShowDeleteConfirm(true)}

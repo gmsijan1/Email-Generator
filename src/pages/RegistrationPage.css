@@ -4,7 +4,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(
+    135deg,
+    var(--brand-primary) 0%,
+    #8b5cf6 50%,
+    #22c55e 100%
+  );
   padding: 20px;
 }
 
@@ -15,6 +20,7 @@
   padding: 40px;
   width: 100%;
   max-width: 440px;
+  text-align: center;
 }
 
 .registration-card h1 {
@@ -29,6 +35,45 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  text-align: left;
+}
+
+.subtitle {
+  color: #718096;
+  font-size: 14px;
+  text-align: center;
+  margin: 0 0 30px 0;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 24px 0;
+  color: #a0aec0;
+  font-size: 12px;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.divider span {
+  padding: 0 12px;
+}
+
+.btn-google {
+  background: white;
+  color: #2d3748;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-google:hover:not(:disabled) {
+  background: #f7fafc;
+  border-color: #cbd5e0;
 }
 
 .login-link {
@@ -39,7 +84,7 @@
 }
 
 .login-link a {
-  color: #667eea;
+  color: var(--brand-primary);
   text-decoration: none;
   font-weight: 600;
 }

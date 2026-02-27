@@ -1,39 +1,22 @@
-// Firebase configuration and initialization
+// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
-// Firebase configuration object
-// Replace these values with your actual Firebase project credentials
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBKfFzFBtCAami0gwUDnyHF_FYV-1N82yQ",
-  authDomain: "email-generator-1f634.firebaseapp.com",
-  projectId: "email-generator-1f634",
-  storageBucket: "email-generator-1f634.firebasestorage.app",
-  messagingSenderId: "601443571394",
-  appId: "1:601443571394:web:153f324829c4622e9fcd5b",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase app
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
 
-// Initialize Firebase Authentication and get a reference to the service
-export const auth = getAuth(app);
-
-// Initialize Google Auth Provider for Google Sign-In
-export const googleProvider = new GoogleAuthProvider();
-
-// Initialize Cloud Firestore and get a reference to the service
-export const db = getFirestore(app);
-
-// Initialize Cloud Functions
-export const functions = getFunctions(app, "us-central1");
-
-// Connect to local emulator during development (optional)
-// Uncomment the next line if running functions emulator locally
-// if (window.location.hostname === "localhost") {
-//   connectFunctionsEmulator(functions, "localhost", 5001);
-// }
-
-export default app;
+export { app, auth, db, googleProvider };

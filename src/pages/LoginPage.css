@@ -4,7 +4,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(
+    135deg,
+    var(--brand-primary) 0%,
+    #8b5cf6 50%,
+    #22c55e 100%
+  );
   padding: 24px 16px;
 }
 
@@ -111,14 +116,14 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-primary) 0%, #8b5cf6 100%);
   color: white;
   margin-top: 8px;
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 18px rgba(76, 52, 243, 0.35);
 }
 
 .divider {
@@ -165,7 +170,7 @@
 }
 
 .register-link a {
-  color: #667eea;
+  color: var(--brand-primary);
   text-decoration: none;
   font-weight: 600;
 }

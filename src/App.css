@@ -13,8 +13,8 @@ body {
     "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #f7fafc;
-  color: #2d3748;
+  background: var(--brand-bg);
+  color: var(--brand-text);
 }
 
 /* Typography */
@@ -60,23 +60,24 @@ a {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-primary) 0%, #8b5cf6 100%);
   color: white;
+  box-shadow: var(--brand-shadow);
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 18px rgba(76, 52, 243, 0.35);
 }
 
 .btn-secondary {
-  background: white;
-  color: #4a5568;
-  border: 1px solid #e2e8f0;
+  background: var(--brand-surface);
+  color: var(--brand-text);
+  border: 1px solid var(--brand-border);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #f7fafc;
+  background: var(--brand-surface-alt);
   border-color: #cbd5e0;
 }
 
@@ -88,7 +89,7 @@ a {
 }
 
 .form-group label {
-  color: #2d3748;
+  color: var(--brand-text);
   font-size: 14px;
   font-weight: 500;
 }
@@ -96,7 +97,7 @@ a {
 .form-group input,
 .form-group textarea,
 .form-group select {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--brand-border);
   border-radius: 6px;
   padding: 12px;
   font-size: 14px;
@@ -104,20 +105,22 @@ a {
     border-color 0.2s,
     box-shadow 0.2s;
   font-family: inherit;
+  background: var(--brand-surface);
+  color: var(--brand-text);
 }
 
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(109, 93, 252, 0.12);
 }
 
 .form-group input:disabled,
 .form-group textarea:disabled,
 .form-group select:disabled {
-  background: #f7fafc;
+  background: var(--brand-surface-alt);
   cursor: not-allowed;
 }
 
@@ -208,10 +211,4 @@ a {
   border-radius: 50%;
   border-top-color: white;
   animation: spin 0.6s linear infinite;
-}
-
-/* Desktop-first Design */
-body {
-  min-width: 1024px;
-  overflow-x: auto;
 }

@@ -16,7 +16,7 @@ A React-based MVP application for generating AI-powered sales emails using Fireb
 
 - **Draft Management**
   - Dashboard to view all saved drafts
-  - View, edit, regenerate, and delete drafts
+  - View, edit, and delete drafts
   - Real-time updates from Firestore
 
 - **Secure Routing**
@@ -44,7 +44,16 @@ npm install
 1. Create a Firebase project at https://console.firebase.google.com
 2. Enable Authentication (Email/Password and Google providers)
 3. Create a Firestore database
-4. Update \`src/firebase.js\` with your Firebase configuration
+4. Add Firebase config values to `.env` (or `.env.local`)
+
+```
+VITE_FIREBASE_API_KEY=AIzaSy...
+VITE_FIREBASE_AUTH_DOMAIN=xxx.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=xxx
+VITE_FIREBASE_STORAGE_BUCKET=xxx.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=xxx
+VITE_FIREBASE_APP_ID=1:xxx:web:xxx
+```
 
 ### 3. Configure OpenAI
 
@@ -89,6 +98,31 @@ firebase deploy
 2. Move OpenAI calls to a backend server in production
 3. Set up proper Firestore security rules
 4. Use environment variables for sensitive data
+
+### Firestore Rules (React-only app)
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+                        && request.auth.uid == userId;
+
+      match /drafts/{draftId} {
+        allow read, write: if request.auth != null
+                          && request.auth.uid == userId;
+      }
+
+      match /emails/{emailId} {
+        allow read, write: if request.auth != null
+                          && request.auth.uid == userId;
+      }
+    }
+  }
+}
+```
 
 ## License
 

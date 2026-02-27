@@ -1,17 +1,9 @@
 // Service for interacting with OpenAI GPT API
-import OpenAI from "openai";
 import {
-  OPENAI_API_KEY,
   OPENAI_MODEL,
   OPENAI_CONFIG,
   USE_MOCK_MODE,
 } from "../config/openaiConfig";
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true, // Note: In production, API calls should go through a backend server
-});
 
 /**
  * Generate sales email drafts using OpenAI GPT API
@@ -36,26 +28,6 @@ export async function generateEmailDrafts({
       throw new Error("All fields are required for email generation");
     }
 
-    const prompt = `Generate 2 email drafts in plain text only. Do NOT include subject line, analysis, variants, markdown, or bold. Return only the full email body text.
-
-  Recipient Name: ${recipientName}
-  Recipient Email: ${recipientEmail}
-  Context: ${context}
-  Goal: ${goal}
-  Tone: ${tone}
-
-  Each draft should:
-  - Address the recipient by name
-  - Incorporate the provided context naturally
-  - Align with the specified goal
-  - Match the desired tone
-  - Be professional and engaging
-  - Include a clear call-to-action
-  - Be concise (150-250 words each)
-
-  Return only the email body for each draft, separated by the exact delimiter on its own line:
-  <<<DRAFT_SPLIT>>>`;
-
     // Use mock mode if enabled (for testing without API credits)
     if (USE_MOCK_MODE) {
       console.warn(
@@ -71,62 +43,28 @@ export async function generateEmailDrafts({
       });
     }
 
-    // Call OpenAI API
-    const response = await openai.chat.completions.create({
-      model: OPENAI_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a professional sales email writer. Generate compelling, personalized sales emails based on the provided context.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: OPENAI_CONFIG.temperature,
-      // Ensure we never exceed the model's max_tokens limit (gpt-4o: 16384)
-      max_tokens: Math.min(OPENAI_CONFIG.maxTokens, 12000), // Cap at 12k for all drafts combined
+    // Call serverless API route for OpenAI
+    const response = await fetch("/api/generate-email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        recipientName,
+        recipientEmail,
+        context,
+        goal,
+        tone,
+        config: OPENAI_CONFIG,
+        model: OPENAI_MODEL,
+      }),
     });
-
-    // Extract the generated text
-    const generatedText = response.choices[0]?.message?.content;
-
-    if (!generatedText) {
-      throw new Error("No response generated from OpenAI");
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to generate email drafts");
     }
-
-    // Remove all '---' separators
-    let cleanedText = generatedText.replace(/---+/g, "");
-
-    // Split only by the explicit delimiter to avoid paragraph splitting
-    let emailDrafts = cleanedText
-      .split(/<<<DRAFT_SPLIT>>>/)
-      .map((s) => s.trim())
-      .filter((d) => d.length > 0);
-
-    // For each draft, remove only lines that are SUBJECT, DRAFT, or markdown headings
-    emailDrafts = emailDrafts.map((draft) =>
-      draft
-        .split(/\r?\n/)
-        .filter(
-          (line) =>
-            !/DRAFT/i.test(line) &&
-            !/SUBJECT:/i.test(line) &&
-            !/^#+/.test(line) &&
-            !/^\s*\*+/.test(line),
-        )
-        .join("\n")
-        .trim(),
-    );
-
-    // If delimiter missing, treat entire output as a single draft
-    if (emailDrafts.length === 0 && cleanedText.trim().length > 0) {
-      return [cleanedText.trim()];
-    }
-
-    return emailDrafts.slice(0, 2);
+    const data = await response.json();
+    return data.drafts;
   } catch (error) {
     console.error("Error generating email drafts:", error);
 
@@ -148,50 +86,34 @@ export async function generateEmailDrafts({
 /**
  * Generate mock email drafts for testing without API
  */
-function generateMockDrafts({ recipientName, context, goal }) {
+function generateMockDrafts({ recipientName, goal }) {
   const drafts = [
-    `Subject: ${goal} - Let's Connect
+    `Hi ${recipientName},
 
-Hi ${recipientName},
+I noticed you're leading growth at your company. Most SaaS teams your size lose over half of outbound replies before they ever reach pipeline.
 
-I hope this email finds you well. ${context}
+Teams using our outbound framework consistently convert more replies into booked demos without increasing volume.
 
-I wanted to reach out regarding ${goal.toLowerCase()}. Based on what I know about your work, I believe there could be a great opportunity for us to collaborate.
+Happy to share a 3-step teardown we use for SaaS teams running 30–50 demos a month. Worth a quick look?
 
-Would you be available for a brief conversation this week? I'd love to learn more about your current priorities and share some ideas that might be valuable.
+Best,
+Sales Team
 
-Looking forward to connecting!
+Book time here: https://cal.com/demo`,
 
-Best regards`,
-    `Subject: Quick Question for ${recipientName}
+    `Hey ${recipientName},
 
-Hello ${recipientName},
+Saw you're running outbound at scale. Quick question: how many of your replies actually turn into pipeline?
 
-I came across your profile and was impressed by your work. ${context}
+We help B2B SaaS teams turn 60%+ of replies into qualified demos with a simple framework. No extra volume needed.
 
-I'm reaching out about ${goal.toLowerCase()}. I have some insights that I think could be beneficial for you and your team.
+Want to see the exact playbook? 12-minute walkthrough available this week.
 
-Could we schedule a 15-minute call this week? I promise to be respectful of your time and keep it brief.
+Cheers,
+Sales Team
 
-Thanks for considering!
-
-Warm regards`,
+Schedule: https://cal.com/demo`,
   ];
 
   return drafts;
-}
-
-/**
- * Regenerate a single email draft with the same parameters
- * @param {Object} params - Same parameters as generateEmailDrafts
- * @returns {Promise<string>} - A single regenerated email draft
- */
-export async function regenerateEmailDraft(params) {
-  try {
-    const drafts = await generateEmailDrafts(params);
-    return drafts[0]; // Return just the first draft
-  } catch (error) {
-    console.error("Error regenerating email draft:", error);
-    throw error;
-  }
 }
