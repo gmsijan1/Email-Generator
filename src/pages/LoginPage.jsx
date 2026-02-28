@@ -61,12 +61,10 @@ export default function LoginPage() {
       setError("");
       setLoading(true);
       await login(email, password);
-      console.log("Login successful, navigating to dashboard...");
+      // ...removed console.log...
       navigate("/dashboard"); // Redirect to dashboard on successful login
     } catch (error) {
-      console.error("Login error:", error);
-      console.error("Error code:", error.code);
-      console.error("Error message:", error.message);
+      // ...removed console.error statements...
 
       // Handle specific Firebase auth errors
       if (error.code === "auth/user-not-found") {
@@ -99,7 +97,7 @@ export default function LoginPage() {
       setLoading(true);
       await loginWithGoogle();
     } catch (error) {
-      console.error("Google login error:", error);
+      // ...removed console.error...
 
       // Handle specific errors
       if (error.code === "auth/popup-closed-by-user") {

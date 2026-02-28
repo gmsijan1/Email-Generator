@@ -62,7 +62,6 @@ export default function MinimalEmailGenerator() {
       }
     } catch (err) {
       // Network error, authentication error, or Cloud Function error
-      console.error("Cloud Function Error:", err);
 
       // Set user-friendly error message
       if (err.code === "unauthenticated") {

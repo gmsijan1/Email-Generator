@@ -38,7 +38,7 @@ export default function SimpleEmailGenerator() {
       setNotification({ message: "Draft generated!", type: "success" });
     } catch (err) {
       // Error is already set in hook, just need to catch for form handling
-      console.error("Generation failed:", err);
+
       setNotification({
         message: err?.message || "Failed to generate email.",
         type: "error",

@@ -51,13 +51,8 @@ export default function DashboardPage() {
 
         setDrafts(draftsData);
         setLoading(false);
-        console.log(`Loaded ${draftsData.length} drafts`);
       },
       (error) => {
-        console.error("Error fetching drafts:", error);
-        console.error("Error code:", error.code);
-        console.error("Error message:", error.message);
-
         // Check if it's an index error
         if (
           error.code === "failed-precondition" ||
@@ -65,9 +60,6 @@ export default function DashboardPage() {
         ) {
           setError(
             "Database index required. Check the console for the link to create it.",
-          );
-          console.error(
-            "You need to create a Firestore index. Click the link above or in the Firebase Console.",
           );
         } else {
           setError(`Failed to load drafts: ${error.message}`);
@@ -107,7 +99,6 @@ export default function DashboardPage() {
       await logout();
       navigate("/login");
     } catch (error) {
-      console.error("Logout error:", error);
       setError("Failed to log out. Please try again.");
     }
   }

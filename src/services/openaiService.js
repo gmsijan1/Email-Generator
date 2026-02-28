@@ -30,9 +30,6 @@ export async function generateEmailDrafts({
 
     // Use mock mode if enabled (for testing without API credits)
     if (USE_MOCK_MODE) {
-      console.warn(
-        "🎭 MOCK MODE: Generating sample drafts instead of calling OpenAI API",
-      );
       await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API delay
       return generateMockDrafts({
         recipientName,
@@ -66,8 +63,6 @@ export async function generateEmailDrafts({
     const data = await response.json();
     return data.drafts;
   } catch (error) {
-    console.error("Error generating email drafts:", error);
-
     // Handle specific error types
     if (error.message?.includes("API key")) {
       throw new Error(

@@ -33,7 +33,6 @@ export function AuthProvider({ children }) {
         updatedAt: new Date().toISOString(),
       });
     } catch (error) {
-      console.error("Error creating user profile:", error);
       throw error;
     }
   }
@@ -53,7 +52,6 @@ export function AuthProvider({ children }) {
       }
       return null;
     } catch (error) {
-      console.error("Error getting user profile:", error);
       throw error;
     }
   }
@@ -117,18 +115,15 @@ export function AuthProvider({ children }) {
   async function loginWithGoogle() {
     try {
       setError(null);
-      console.log("Initiating Google popup sign-in...");
+
       await setPersistence(auth, browserLocalPersistence);
 
       const { signInWithPopup } = await import("firebase/auth");
       const result = await signInWithPopup(auth, googleProvider);
 
-      console.log("Google sign-in successful:", result.user.email);
-
       // Create profile if doesn't exist
       const profile = await getUserProfile(result.user.uid);
       if (!profile) {
-        console.log("Creating new user profile...");
         await createUserProfile(result.user.uid, {
           email: result.user.email,
           displayName:
@@ -143,7 +138,6 @@ export function AuthProvider({ children }) {
 
       return result.user;
     } catch (error) {
-      console.error("Google popup error:", error);
       setError(error.message);
       throw error;
     }
@@ -167,27 +161,22 @@ export function AuthProvider({ children }) {
     let isMounted = true;
 
     // Set persistence
-    setPersistence(auth, browserLocalPersistence).catch((persistenceError) => {
-      console.error("Auth persistence error:", persistenceError);
-    });
+    setPersistence(auth, browserLocalPersistence).catch(
+      (persistenceError) => {},
+    );
 
     // Handle redirect result first
     async function handleRedirectResult() {
       try {
-        console.log("Checking for redirect result...");
         const result = await getRedirectResult(auth);
 
         if (!isMounted) {
-          console.log("Component unmounted, skipping redirect result");
           return;
         }
 
         if (result?.user) {
-          console.log("Redirect result found for user:", result.user.email);
-
           const profile = await getUserProfile(result.user.uid);
           if (!profile) {
-            console.log("Creating new user profile...");
             await createUserProfile(result.user.uid, {
               email: result.user.email,
               displayName:
@@ -197,10 +186,8 @@ export function AuthProvider({ children }) {
             });
           }
         } else {
-          console.log("No redirect result found");
         }
       } catch (redirectError) {
-        console.error("Google redirect result error:", redirectError);
         setError(redirectError.message);
       }
     }
@@ -210,7 +197,6 @@ export function AuthProvider({ children }) {
     // Subscribe to auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (isMounted) {
-        console.log("Auth state changed:", user?.email || "no user");
         setCurrentUser(user);
         setLoading(false);
       }

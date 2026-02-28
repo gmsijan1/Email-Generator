@@ -34,7 +34,6 @@ export default function EmailGeneratorExample() {
       setGeneratedEmail(result);
       setNotification({ message: "Draft generated!", type: "success" });
     } catch (err) {
-      console.error("Error generating email:", err);
       setNotification({
         message:
           err.message || "Failed to generate email. Check console for details.",
@@ -65,7 +64,6 @@ export default function EmailGeneratorExample() {
       setGeneratedDrafts(results);
       setNotification({ message: "Drafts generated!", type: "success" });
     } catch (err) {
-      console.error("Error generating drafts:", err);
       setNotification({
         message:
           err.message ||

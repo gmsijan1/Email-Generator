@@ -346,7 +346,6 @@ export default function DraftFormPage() {
       });
       setStep(4); // Show results
     } catch (error) {
-      console.error("Error generating drafts:", error);
       setNotification({
         message:
           error.message || "Failed to generate email drafts. Please try again.",
@@ -398,7 +397,7 @@ export default function DraftFormPage() {
       });
       setSavedDraftIndexes((prev) => [...prev, index]);
     } catch (error) {
-      console.error("Error saving draft:", error);
+      // removed console.error
       setNotification({
         message: "Failed to save draft. Please try again.",
         type: "error",

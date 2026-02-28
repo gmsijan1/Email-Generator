@@ -44,7 +44,6 @@ export default function DraftDetailPage() {
           setTimeout(() => navigate("/dashboard"), 2000);
         }
       } catch (error) {
-        console.error("Error fetching draft:", error);
         setError("Failed to load draft. Please try again.");
       } finally {
         setLoading(false);
@@ -77,7 +76,6 @@ export default function DraftDetailPage() {
       setIsEditing(false);
       setNotification({ message: "Draft saved!", type: "success" });
     } catch (error) {
-      console.error("Error updating draft:", error);
       setNotification({
         message: "Failed to update draft. Please try again.",
         type: "error",
@@ -98,7 +96,6 @@ export default function DraftDetailPage() {
       setNotification({ message: "Draft deleted!", type: "error" });
       setTimeout(() => navigate("/dashboard"), 1000);
     } catch (error) {
-      console.error("Error deleting draft:", error);
       setNotification({
         message: "Failed to delete draft. Please try again.",
         type: "error",

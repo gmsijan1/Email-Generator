@@ -52,8 +52,6 @@ export default function RegistrationPage() {
       await signup(email, password, displayName);
       navigate("/dashboard"); // Redirect to dashboard on successful registration
     } catch (error) {
-      console.error("Registration error:", error);
-
       // Handle specific Firebase auth errors
       if (error.code === "auth/email-already-in-use") {
         setError("An account with this email already exists");
@@ -79,7 +77,7 @@ export default function RegistrationPage() {
       await loginWithGoogle();
       navigate("/dashboard"); // Redirect to dashboard on successful signup
     } catch (error) {
-      console.error("Google signup error:", error);
+      // removed console.error
 
       // Handle specific errors
       if (error.code === "auth/popup-closed-by-user") {
