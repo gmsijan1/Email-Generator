@@ -1,5 +1,6 @@
 /**
  * Inference helper functions for intelligent default handling
+ * SERVER-ONLY: This file lives in /api to keep the prompt template hidden from the browser.
  */
 
 export function inferPrimaryPain({ prospectTitle }) {

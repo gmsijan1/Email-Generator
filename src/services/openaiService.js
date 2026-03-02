@@ -10,7 +10,8 @@ import {
  * @param {Object} params - Email generation parameters
  * @param {string} params.recipientName - Name of the email recipient
  * @param {string} params.recipientEmail - Email address of recipient
- * @param {string} params.context - Context about the recipient or situation
+ * @param {Object} [params.formData] - Form fields for server-side prompt building (preferred; keeps prompt hidden)
+ * @param {string} [params.context] - Pre-built context (legacy; only if formData not provided)
  * @param {string} params.goal - Goal of the email (e.g., "Schedule Meeting", "Follow Up")
  * @param {string} params.tone - Desired tone (e.g., "Professional", "Casual", "Friendly")
  * @returns {Promise<Array<string>>} - Array of 1-3 generated email drafts
@@ -18,14 +19,18 @@ import {
 export async function generateEmailDrafts({
   recipientName,
   recipientEmail,
+  formData,
   context,
   goal,
   tone,
 }) {
   try {
     // Validate required fields
-    if (!recipientName || !recipientEmail || !context || !goal || !tone) {
+    if (!recipientName || !recipientEmail || !goal || !tone) {
       throw new Error("All fields are required for email generation");
+    }
+    if (!formData && !context) {
+      throw new Error("Either formData or context is required");
     }
 
     // Use mock mode if enabled (for testing without API credits)
@@ -34,13 +39,15 @@ export async function generateEmailDrafts({
       return generateMockDrafts({
         recipientName,
         recipientEmail,
-        context,
+        context: formData
+          ? `[Mock: form data for ${formData.companyName}]`
+          : context,
         goal,
         tone,
       });
     }
 
-    // Call serverless API route for OpenAI
+    // Call serverless API route for OpenAI (prompt built on server when formData provided)
     const response = await fetch("/api/generate-email", {
       method: "POST",
       headers: {
@@ -49,7 +56,8 @@ export async function generateEmailDrafts({
       body: JSON.stringify({
         recipientName,
         recipientEmail,
-        context,
+        formData: formData || undefined,
+        context: context || undefined,
         goal,
         tone,
         config: OPENAI_CONFIG,

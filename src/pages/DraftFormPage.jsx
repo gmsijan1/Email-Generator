@@ -5,11 +5,6 @@ import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import useAuth from "../contexts/useAuth";
 import { generateEmailDrafts } from "../services/openaiService";
-import {
-  buildEmailPrompt,
-  inferPrimaryPain,
-  inferCategory,
-} from "../config/emailPromptTemplate";
 import TemporaryNotification from "../components/TemporaryNotification";
 import "./DraftFormPage.css";
 // import CreditBalanceDisplay from "../components/CreditBalanceDisplay";
@@ -303,36 +298,25 @@ export default function DraftFormPage() {
       const sanitizedSocialProofClient = sanitizePlainText(socialProofClient);
       const sanitizedSocialProofResult = sanitizePlainText(socialProofResult);
 
-      const effectiveCategory = inferCategory(sanitizedProductService);
-      const effectivePrimaryPain =
-        sanitizedPrimaryPain ||
-        inferPrimaryPain({
-          prospectTitle: sanitizedProspectTitle,
-        });
-
-      // Build comprehensive context using imported prompt template
-      const prompt = buildEmailPrompt({
-        companyName: sanitizedCompanyName,
-        senderNameTitle: sanitizedSenderNameTitle,
-        productService: sanitizedProductService,
-        prospectFirstName: sanitizedProspectFirstName,
-        prospectCompany: sanitizedProspectCompany,
-        prospectTitle: sanitizedProspectTitle,
-        ctaType,
-        tone: "Confident and professional",
-        line3Input: sanitizedLine3Input,
-        keyDifferentiator: sanitizedKeyDifferentiator,
-        socialProofClient: sanitizedSocialProofClient,
-        category: effectiveCategory,
-        socialProofResult: sanitizedSocialProofResult,
-        primaryPain: effectivePrimaryPain,
-      });
-
-      // Generate 2 drafts (modified from 3)
+      // Send form data to API; prompt is built on server (hidden from browser)
       const drafts = await generateEmailDrafts({
         recipientName: sanitizedProspectFirstName,
         recipientEmail: `${sanitizedProspectFirstName.toLowerCase()}@${sanitizedProspectCompany.toLowerCase().replace(/\s+/g, "")}.com`,
-        context: prompt,
+        formData: {
+          companyName: sanitizedCompanyName,
+          senderNameTitle: sanitizedSenderNameTitle,
+          productService: sanitizedProductService,
+          prospectFirstName: sanitizedProspectFirstName,
+          prospectCompany: sanitizedProspectCompany,
+          prospectTitle: sanitizedProspectTitle,
+          ctaType,
+          tone: "Confident and professional",
+          line3Input: sanitizedLine3Input,
+          keyDifferentiator: sanitizedKeyDifferentiator,
+          socialProofClient: sanitizedSocialProofClient,
+          socialProofResult: sanitizedSocialProofResult,
+          primaryPain: sanitizedPrimaryPain,
+        },
         goal: ctaType,
         tone: "Confident but conversational",
       });
