@@ -1,6 +1,50 @@
 import { OpenAI } from "openai";
 import { buildEmailPrompt } from "./emailPromptTemplate.js";
 
+/**
+ * Parse raw model output into Variant A and Variant B drafts.
+ * Each draft is formatted as "Subject: X\n\nBody" for clean display.
+ */
+function parseEmailDrafts(rawContent) {
+  if (!rawContent || !rawContent.trim()) {
+    return ["", ""];
+  }
+
+  const normalized = rawContent.trim();
+
+  // Split by VARIANT B to separate the two variants
+  const variantBSplit = normalized.split(/\*\*VARIANT B:\*\*/i);
+  const variantAPart = (variantBSplit[0] || "").trim();
+  const variantBPart = (variantBSplit[1] || "").trim();
+
+  function extractSubjectAndBody(block) {
+    const subjectMatch = block.match(
+      /\*\*SUBJECT LINE:\*\*\s*\n?\s*([\s\S]*?)(?=\*\*EMAIL BODY:\*\*|$)/i,
+    );
+    const bodyMatch = block.match(
+      /\*\*EMAIL BODY:\*\*\s*\n?\s*([\s\S]*?)(?=\*\*SUBJECT LINE:\*\*|\*\*VARIANT B:\*\*|\*\*ANALYSIS:\*\*|$)/i,
+    );
+    const subject = (subjectMatch?.[1] || "").trim();
+    const body = (bodyMatch?.[1] || "").trim();
+    if (subject || body) {
+      return `Subject: ${subject}\n\n${body}`.trim();
+    }
+    return block.trim() || "";
+  }
+
+  const draftA = extractSubjectAndBody(variantAPart);
+  const draftB = extractSubjectAndBody(variantBPart);
+
+  // Fallback: if parsing fails, put full content in draft A
+  if (!draftA && !draftB) {
+    return [rawContent, ""];
+  }
+  if (!draftA) return [variantAPart || rawContent, draftB];
+  if (!draftB) return [draftA, ""];
+
+  return [draftA, draftB];
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -58,7 +102,7 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "system",
-          content: `You are an expert sales email generator. Generate a concise, effective sales email draft.`,
+          content: `You are an expert sales email generator. Output only the requested email format: SUBJECT LINE, EMAIL BODY, and VARIANT B. Do not add analysis, bullets, or explanations.`,
         },
         {
           role: "user",
@@ -66,11 +110,12 @@ export default async function handler(req, res) {
         },
       ],
       temperature: config?.temperature || 0.7,
-      max_tokens: config?.maxTokens || 600,
+      max_tokens: config?.maxTokens || 1200,
     });
 
-    const draft = completion.choices[0]?.message?.content || "";
-    res.status(200).json({ drafts: [draft] });
+    const rawContent = completion.choices[0]?.message?.content || "";
+    const [draftA, draftB] = parseEmailDrafts(rawContent);
+    res.status(200).json({ drafts: [draftA, draftB] });
   } catch (error) {
     console.error("OpenAI API error:", error);
     res.status(500).json({

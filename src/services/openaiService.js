@@ -89,9 +89,11 @@ export async function generateEmailDrafts({
 /**
  * Generate mock email drafts for testing without API
  */
-function generateMockDrafts({ recipientName, goal }) {
+function generateMockDrafts({ recipientName }) {
   const drafts = [
-    `Hi ${recipientName},
+    `Subject: ${recipientName}, streamline your sales workflow
+
+Hi ${recipientName},
 
 I noticed you're leading growth at your company. Most SaaS teams your size lose over half of outbound replies before they ever reach pipeline.
 
@@ -104,7 +106,9 @@ Sales Team
 
 Book time here: https://cal.com/demo`,
 
-    `Hey ${recipientName},
+    `Subject: ${recipientName}, improve your lead pipeline
+
+Hey ${recipientName},
 
 Saw you're running outbound at scale. Quick question: how many of your replies actually turn into pipeline?
 

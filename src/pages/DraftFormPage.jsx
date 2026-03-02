@@ -906,7 +906,7 @@ export default function DraftFormPage() {
               {generatedDrafts.map((draft, index) => (
                 <div key={index} className="draft-preview">
                   <div className="draft-preview-header">
-                    <h3>Draft {index + 1}</h3>
+                    <h3>{index === 0 ? "Variant A" : "Variant B"}</h3>
                     <span className="draft-char-count">
                       {draft.length} characters
                     </span>
