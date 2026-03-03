@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+api/
 *.local
 
 # Environment variables
@@ -30,3 +31,5 @@ dist-ssr
 
 # Firebase CLI build/cache (should not be versioned)
 .firebase/
+.vercel
+.env*.local
