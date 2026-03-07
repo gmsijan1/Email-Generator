@@ -1,11 +1,13 @@
 // Draft Form Page Component - Fanthom MVP with 2-step onboarding flow
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import useAuth from "../contexts/useAuth";
 import { generateEmailDrafts } from "../services/openaiService";
+import { getProfile, updateProfile } from "../services/profileService";
 import TemporaryNotification from "../components/TemporaryNotification";
+import ProfileMenu from "../components/ProfileMenu";
 import "./DraftFormPage.css";
 // import CreditBalanceDisplay from "../components/CreditBalanceDisplay";
 
@@ -120,10 +122,61 @@ export default function DraftFormPage() {
     "Deal Closing",
   ];
 
+  // Pre-fill from saved profile
+  useEffect(() => {
+    if (!currentUser) return;
+    getProfile(currentUser.uid).then((p) => {
+      if (p.companyName) {
+        setCompanyName(p.companyName);
+        setCompanyNameCharCount(p.companyName.length);
+      }
+      if (p.senderNameTitle) {
+        setSenderNameTitle(p.senderNameTitle);
+        setSenderNameTitleCharCount(p.senderNameTitle.length);
+      }
+      if (p.keyDifferentiator) {
+        setKeyDifferentiator(p.keyDifferentiator);
+        setKeyDifferentiatorCharCount(p.keyDifferentiator.length);
+        const wc = p.keyDifferentiator.trim()
+          ? p.keyDifferentiator.trim().split(/\s+/).length
+          : 0;
+        setDifferentiatorWordCount(wc);
+      }
+      if (p.productService) {
+        setProductService(p.productService);
+        setProductServiceCharCount(p.productService.length);
+      }
+      if (p.socialProofClient) {
+        setSocialProofClient(p.socialProofClient);
+        setSocialProofClientCharCount(p.socialProofClient.length);
+        const wc = p.socialProofClient.trim()
+          ? p.socialProofClient.trim().split(/\s+/).length
+          : 0;
+        setSocialProofClientWordCount(wc);
+      }
+      if (p.socialProofResult) {
+        setSocialProofResult(p.socialProofResult);
+        setSocialProofResultCharCount(p.socialProofResult.length);
+        const wc = p.socialProofResult.trim()
+          ? p.socialProofResult.trim().split(/\s+/).length
+          : 0;
+        setSocialProofResultWordCount(wc);
+      }
+      if (p.line3Input) {
+        setLine3Input(p.line3Input);
+        setLine3CharCount(p.line3Input.length);
+        const wc = p.line3Input.trim()
+          ? p.line3Input.trim().split(/\s+/).length
+          : 0;
+        setLine3WordCount(wc);
+      }
+    });
+  }, [currentUser]);
+
   /**
    * Step 1 → Step 2: Proceed to optional fields after validating must-have
    */
-  function handleProceedToStep2() {
+  async function handleProceedToStep2() {
     const missingFields = [];
     const lengthErrors = [];
 
@@ -190,6 +243,18 @@ export default function DraftFormPage() {
         type: "error",
       });
       return;
+    }
+
+    // Auto-save profile fields for future pre-fill
+    try {
+      await updateProfile(currentUser.uid, {
+        companyName: sanitizedCompanyName,
+        senderNameTitle: sanitizedSenderNameTitle,
+        productService: sanitizedProductService,
+        keyDifferentiator: sanitizedKeyDifferentiator,
+      });
+    } catch (e) {
+      // Silent fail - don't block user flow
     }
 
     setNotification(null);
@@ -285,7 +350,6 @@ export default function DraftFormPage() {
 
       setStep(3); // Show spinner
 
-      // ...existing code...
       const sanitizedCompanyName = sanitizeCompany(companyName);
       const sanitizedProspectFirstName = sanitizeName(prospectFirstName);
       const sanitizedProspectCompany = sanitizeCompany(prospectCompany);
@@ -297,6 +361,21 @@ export default function DraftFormPage() {
       const sanitizedPrimaryPain = sanitizePlainText(primaryPain);
       const sanitizedSocialProofClient = sanitizePlainText(socialProofClient);
       const sanitizedSocialProofResult = sanitizePlainText(socialProofResult);
+
+      // Auto-save all profile fields for future pre-fill
+      try {
+        await updateProfile(currentUser.uid, {
+          companyName: sanitizedCompanyName,
+          senderNameTitle: sanitizedSenderNameTitle,
+          productService: sanitizedProductService,
+          keyDifferentiator: sanitizedKeyDifferentiator,
+          socialProofClient: sanitizedSocialProofClient,
+          socialProofResult: sanitizedSocialProofResult,
+          line3Input: sanitizedLine3Input,
+        });
+      } catch (e) {
+        // Silent fail - don't block generation
+      }
 
       // Send form data to API; prompt is built on server (hidden from browser)
       const drafts = await generateEmailDrafts({
@@ -426,7 +505,10 @@ export default function DraftFormPage() {
           </svg>
           Back to Dashboard
         </button>
-        <h1>Fanthom: AI Email Generator </h1>
+        <h1>Fanthom: AI Email Generator</h1>
+        <div className="form-header-profile">
+          <ProfileMenu />
+        </div>
       </header>
 
       <main className="form-main">
@@ -450,70 +532,6 @@ export default function DraftFormPage() {
               <p className="section-note">
                 Fill in the required fields to get started
               </p>
-
-              <div className="form-group">
-                <label htmlFor="companyName">
-                  Your Company Name *{" "}
-                  <span className="field-note">(Sender credibility)</span>
-                </label>
-                <input
-                  type="text"
-                  id="companyName"
-                  value={companyName}
-                  onChange={(e) => {
-                    // Allow spaces, only remove unwanted chars
-                    const value = e.target.value.replace(/[<>#]/g, "");
-                    setCompanyName(value);
-                    setCompanyNameCharCount(value.length);
-                  }}
-                  placeholder="Fanthom"
-                  required
-                />
-                {companyNameCharCount > REQUIRED_LIMITS.companyName && (
-                  <span className="char-count char-count-error">
-                    {companyNameCharCount} / {REQUIRED_LIMITS.companyName}{" "}
-                    characters
-                  </span>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="keyDifferentiator">
-                  Key Differentiator *{" "}
-                  <span className="field-note">
-                    (What makes you different, max 25 words)
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  id="keyDifferentiator"
-                  value={keyDifferentiator}
-                  onChange={(e) => {
-                    // Allow spaces, only remove unwanted chars
-                    const value = e.target.value.replace(/[<>#{}]/g, "");
-                    setKeyDifferentiator(value);
-                    setKeyDifferentiatorCharCount(value.length);
-                    const wordCount = value.trim()
-                      ? value.trim().split(/\s+/).length
-                      : 0;
-                    setDifferentiatorWordCount(wordCount);
-                  }}
-                  placeholder="e.g. Only platform with native CRM integration"
-                  required
-                />
-                {keyDifferentiatorCharCount >
-                  OPTIONAL_LIMITS.keyDifferentiator && (
-                  <span className="char-count char-count-error">
-                    {keyDifferentiatorCharCount} /{" "}
-                    {OPTIONAL_LIMITS.keyDifferentiator} characters
-                  </span>
-                )}
-                {differentiatorWordCount > 25 && (
-                  <span className="word-count word-count-error">
-                    {differentiatorWordCount} / 25 words
-                  </span>
-                )}
-              </div>
 
               <div className="form-row">
                 <div className="form-group">
@@ -601,33 +619,6 @@ export default function DraftFormPage() {
                     </span>
                   )}
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="senderNameTitle">
-                    Your Name & Title *{" "}
-                    <span className="field-note">(Your signature)</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="senderNameTitle"
-                    value={senderNameTitle}
-                    onChange={(e) => {
-                      // Allow spaces, only remove unwanted chars
-                      const value = e.target.value.replace(/[<>#{}]/g, "");
-                      setSenderNameTitle(value);
-                      setSenderNameTitleCharCount(value.length);
-                    }}
-                    placeholder="Jane Smith, VP of Sales"
-                    required
-                  />
-                  {senderNameTitleCharCount >
-                    REQUIRED_LIMITS.senderNameTitle && (
-                    <span className="char-count char-count-error">
-                      {senderNameTitleCharCount} /{" "}
-                      {REQUIRED_LIMITS.senderNameTitle} characters
-                    </span>
-                  )}
-                </div>
               </div>
 
               <div className="form-group">
@@ -673,6 +664,96 @@ export default function DraftFormPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="prefilled-fields">
+                <div className="form-group">
+                  <label htmlFor="companyName">
+                    Your Company Name *{" "}
+                    <span className="field-note">(Sender credibility)</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="companyName"
+                    value={companyName}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[<>#]/g, "");
+                      setCompanyName(value);
+                      setCompanyNameCharCount(value.length);
+                    }}
+                    placeholder="Fanthom"
+                    required
+                  />
+                  {companyNameCharCount > REQUIRED_LIMITS.companyName && (
+                    <span className="char-count char-count-error">
+                      {companyNameCharCount} / {REQUIRED_LIMITS.companyName}{" "}
+                      characters
+                    </span>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="senderNameTitle">
+                    Your Name & Title *{" "}
+                    <span className="field-note">(Your signature)</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="senderNameTitle"
+                    value={senderNameTitle}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[<>#{}]/g, "");
+                      setSenderNameTitle(value);
+                      setSenderNameTitleCharCount(value.length);
+                    }}
+                    placeholder="Jane Smith, VP of Sales"
+                    required
+                  />
+                  {senderNameTitleCharCount >
+                    REQUIRED_LIMITS.senderNameTitle && (
+                    <span className="char-count char-count-error">
+                      {senderNameTitleCharCount} /{" "}
+                      {REQUIRED_LIMITS.senderNameTitle} characters
+                    </span>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="keyDifferentiator">
+                    Key Differentiator *{" "}
+                    <span className="field-note">
+                      (What makes you different, max 25 words)
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    id="keyDifferentiator"
+                    value={keyDifferentiator}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[<>#{}]/g, "");
+                      setKeyDifferentiator(value);
+                      setKeyDifferentiatorCharCount(value.length);
+                      const wordCount = value.trim()
+                        ? value.trim().split(/\s+/).length
+                        : 0;
+                      setDifferentiatorWordCount(wordCount);
+                    }}
+                    placeholder="e.g. Only platform with native CRM integration"
+                    required
+                  />
+                  {keyDifferentiatorCharCount >
+                    OPTIONAL_LIMITS.keyDifferentiator && (
+                    <span className="char-count char-count-error">
+                      {keyDifferentiatorCharCount} /{" "}
+                      {OPTIONAL_LIMITS.keyDifferentiator} characters
+                    </span>
+                  )}
+                  {differentiatorWordCount > 25 && (
+                    <span className="word-count word-count-error">
+                      {differentiatorWordCount} / 25 words
+                    </span>
+                  )}
+                </div>
               </div>
 
               <button type="submit" className="btn btn-primary btn-large">

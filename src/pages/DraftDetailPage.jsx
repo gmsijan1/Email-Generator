@@ -5,6 +5,7 @@ import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import useAuth from "../contexts/useAuth";
 import TemporaryNotification from "../components/TemporaryNotification";
+import ProfileMenu from "../components/ProfileMenu";
 import "./DraftDetailPage.css";
 
 export default function DraftDetailPage() {
@@ -165,6 +166,9 @@ export default function DraftDetailPage() {
           Back to Dashboard
         </button>
         <h1>Email Draft</h1>
+        <div className="detail-header-profile">
+          <ProfileMenu />
+        </div>
       </header>
 
       <main className="detail-main">

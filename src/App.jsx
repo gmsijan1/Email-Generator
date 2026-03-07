@@ -14,6 +14,7 @@ import RegistrationPage from "./pages/RegistrationPage";
 import DashboardPage from "./pages/DashboardPage";
 import DraftFormPage from "./pages/DraftFormPage";
 import DraftDetailPage from "./pages/DraftDetailPage";
+import ProfilePage from "./pages/ProfilePage";
 import LandingPage from "./pages/LandingPage";
 
 import "./App.css";
@@ -54,6 +55,14 @@ function App() {
             element={
               <PrivateRoute>
                 <DraftDetailPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <PrivateRoute>
+                <ProfilePage />
               </PrivateRoute>
             }
           />

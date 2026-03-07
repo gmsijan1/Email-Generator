@@ -1,21 +1,19 @@
 // Dashboard Page Component - Shows list of saved email drafts
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import useAuth from "../contexts/useAuth";
 import "./DashboardPage.css";
 import CreditBalanceDisplay from "../components/CreditBalanceDisplay";
+import ProfileMenu from "../components/ProfileMenu";
 
 export default function DashboardPage() {
   const [drafts, setDrafts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const userMenuRef = useRef(null);
 
-  const { currentUser, logout, loading: authLoading } = useAuth();
+  const { currentUser, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   /**
@@ -71,37 +69,6 @@ export default function DashboardPage() {
     // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [currentUser, authLoading, navigate]);
-
-  /**
-   * Handle click outside user menu to close it
-   */
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        setShowUserMenu(false);
-        setShowLogoutConfirm(false);
-      }
-    }
-
-    if (showUserMenu) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-      };
-    }
-  }, [showUserMenu]);
-
-  /**
-   * Handle logout
-   */
-  async function handleLogout() {
-    try {
-      await logout();
-      navigate("/login");
-    } catch (error) {
-      setError("Failed to log out. Please try again.");
-    }
-  }
 
   /**
    * Format timestamp for display
@@ -165,120 +132,14 @@ export default function DashboardPage() {
           <div
             className="header-actions"
             style={{
-              position: "relative",
               flexShrink: 0,
               display: "flex",
               alignItems: "center",
               gap: 20,
             }}
-            ref={userMenuRef}
           >
             <CreditBalanceDisplay />
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="user-icon-btn"
-              style={{
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                color: "white",
-                border: "none",
-                borderRadius: "50%",
-                width: "40px",
-                height: "40px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                fontSize: "16px",
-                fontWeight: "600",
-              }}
-            >
-              {currentUser?.email?.charAt(0).toUpperCase()}
-            </button>
-            {showUserMenu && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "50px",
-                  right: "0",
-                  background: "white",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                  padding: "16px",
-                  minWidth: "200px",
-                  zIndex: 1000,
-                }}
-              >
-                <div
-                  style={{
-                    marginBottom: "12px",
-                    paddingBottom: "12px",
-                    borderBottom: "1px solid #e2e8f0",
-                    textAlign: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "14px",
-                      color: "#718096",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    Signed in as
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      color: "#2d3748",
-                    }}
-                  >
-                    {currentUser?.email}
-                  </div>
-                </div>
-                {!showLogoutConfirm ? (
-                  <button
-                    onClick={() => setShowLogoutConfirm(true)}
-                    className="btn btn-secondary"
-                    style={{ width: "100%", justifyContent: "center" }}
-                  >
-                    Log Out
-                  </button>
-                ) : (
-                  <div>
-                    <div
-                      style={{
-                        fontSize: "14px",
-                        color: "#718096",
-                        marginBottom: "8px",
-                        textAlign: "center",
-                      }}
-                    >
-                      Are you sure?
-                    </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button
-                        onClick={() => {
-                          setShowLogoutConfirm(false);
-                          setShowUserMenu(false);
-                        }}
-                        className="btn btn-secondary"
-                        style={{ flex: 1, padding: "8px", fontSize: "14px" }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleLogout}
-                        className="btn btn-danger"
-                        style={{ flex: 1, padding: "8px", fontSize: "14px" }}
-                      >
-                        Yes
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <ProfileMenu />
           </div>
         </div>
       </header>

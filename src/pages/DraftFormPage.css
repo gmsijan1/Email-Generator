@@ -19,6 +19,12 @@
   text-align: center;
 }
 
+.form-header .form-header-profile {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
 .back-button {
   display: inline-flex;
   align-items: center;
@@ -169,6 +175,16 @@
   grid-template-columns: 1fr 1fr;
   gap: 24px;
   margin-bottom: 12px;
+}
+
+.form-group-spaced {
+  margin-top: 24px;
+}
+
+.prefilled-fields {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--brand-border, #e5e7eb);
 }
 
 @media (max-width: 900px) {
