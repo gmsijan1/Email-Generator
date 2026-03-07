@@ -112,6 +112,7 @@ export function buildEmailPrompt({
   category = "",
   socialProofResult = "",
   primaryPain = "",
+  companyDescription = "",
 }) {
   const effectiveDifferentiator =
     keyDifferentiator ||
@@ -133,7 +134,7 @@ export function buildEmailPrompt({
 
   const template = process.env.EMAIL_PROMPT_TEMPLATE || getFallbackTemplate();
 
-  return template
+  let result = template
     .replace(/\{\{COMPANY_NAME\}\}/g, companyName || "")
     .replace(/\{\{SENDER_NAME_TITLE\}\}/g, senderNameTitle || "")
     .replace(/\{\{PRODUCT_SERVICE\}\}/g, productService || "")
@@ -149,7 +150,12 @@ export function buildEmailPrompt({
     .replace(/\{\{CTA_TYPE\}\}/g, ctaType || "")
     .replace(/\{\{EFFECTIVE_PRIMARY_PAIN\}\}/g, effectivePrimaryPain)
     .replace(/\{\{SIGNATURE_LINE_3\}\}/g, signatureLine3)
-    .trim();
+    .replace(
+      /\{\{PROSPECT_COMPANY_DESCRIPTION\}\}/g,
+      companyDescription?.trim() || "(not provided)",
+    );
+
+  return result.trim();
 }
 
 /** Minimal fallback when EMAIL_PROMPT_TEMPLATE is not set (dev only) */

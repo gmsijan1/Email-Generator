@@ -103,6 +103,7 @@ export default async function handler(req, res) {
         category: formData.category || "",
         socialProofResult: formData.socialProofResult || "",
         primaryPain: formData.primaryPain || "",
+        companyDescription: formData.companyDescription || "",
       });
       promptContent += CRITICAL_OUTPUT_RULES;
     } else if (context) {

@@ -77,6 +77,9 @@ export default function DraftFormPage() {
   const [line3Input, setLine3Input] = useState("");
   const [line3WordCount, setLine3WordCount] = useState(0);
 
+  // Prospect company description (optional, for personalization)
+  const [companyDescription, setCompanyDescription] = useState("");
+
   // Word counts for other fields
   const [differentiatorWordCount, setDifferentiatorWordCount] = useState(0);
   const [painWordCount, setPainWordCount] = useState(0);
@@ -395,6 +398,7 @@ export default function DraftFormPage() {
           socialProofClient: sanitizedSocialProofClient,
           socialProofResult: sanitizedSocialProofResult,
           primaryPain: sanitizedPrimaryPain,
+          companyDescription: companyDescription.trim() || undefined,
         },
         goal: ctaType,
         tone: "Confident but conversational",
@@ -772,6 +776,23 @@ export default function DraftFormPage() {
                 Fill in any of these to increase email relevance. Skip if you
                 want Fanthom to infer.
               </p>
+
+              <div className="form-group">
+                <label htmlFor="companyDescription">
+                  Prospect Company Description{" "}
+                  <span className="field-note">
+                    (Helps personalize the email)
+                  </span>
+                </label>
+                <textarea
+                  id="companyDescription"
+                  value={companyDescription}
+                  onChange={(e) => setCompanyDescription(e.target.value)}
+                  placeholder="e.g. B2B SaaS selling sales automation tools to mid-market teams. Recently raised Series B. Focus on outbound and pipeline."
+                  disabled={loading}
+                  rows={3}
+                />
+              </div>
 
               <div className="form-group">
                 <label htmlFor="primaryPain">
