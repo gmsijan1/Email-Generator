@@ -1,5 +1,6 @@
 import { OpenAI } from "openai";
 import { buildEmailPrompt } from "./emailPromptTemplate.js";
+import { deriveProspectCompanyLabel } from "./prospectUrl.js";
 import {
   stripPromptLeakage,
   cleanDraft,
@@ -78,7 +79,22 @@ export default async function handler(req, res) {
     formData,
   } = req.body;
 
-  if (!recipientName || !recipientEmail || !goal || !tone) {
+  const urlOnly =
+    typeof formData?.prospectSourceUrl === "string" &&
+    formData.prospectSourceUrl.trim().length > 0;
+
+  if (!goal || !tone) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  if (urlOnly) {
+    if (!formData.senderNameTitle?.trim() || !formData.productService?.trim()) {
+      return res.status(400).json({
+        error:
+          "Complete your saved profile with your name and offer before generating.",
+      });
+    }
+  } else if (!recipientName || !recipientEmail) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
@@ -104,6 +120,7 @@ export default async function handler(req, res) {
         socialProofResult: formData.socialProofResult || "",
         primaryPain: formData.primaryPain || "",
         companyDescription: formData.companyDescription || "",
+        prospectSourceUrl: formData.prospectSourceUrl || "",
       });
       promptContent += CRITICAL_OUTPUT_RULES;
     } else if (context) {
@@ -127,8 +144,23 @@ export default async function handler(req, res) {
     const rawContent = completion.choices[0]?.message?.content || "";
     let [draftA, draftB] = parseEmailDrafts(rawContent);
 
-    draftA = cleanDraft(draftA, formData);
-    draftB = cleanDraft(draftB, formData);
+    let cleanupFormData = formData;
+    if (formData?.prospectSourceUrl?.trim()) {
+      const label = deriveProspectCompanyLabel(
+        formData.prospectSourceUrl.trim(),
+      );
+      cleanupFormData = {
+        ...formData,
+        prospectFirstName:
+          formData.prospectFirstName?.trim() || "there",
+        prospectCompany:
+          formData.prospectCompany?.trim() || label || "",
+        companyName: formData.companyName?.trim() || "",
+      };
+    }
+
+    draftA = cleanDraft(draftA, cleanupFormData);
+    draftB = cleanDraft(draftB, cleanupFormData);
 
     res.status(200).json({ drafts: [draftA, draftB] });
   } catch (error) {

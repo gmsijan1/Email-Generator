@@ -1,114 +1,52 @@
-// Draft Form Page Component - Fanthom MVP with 2-step onboarding flow
 import { useState, useEffect } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import useAuth from "../contexts/useAuth";
 import { generateEmailDrafts } from "../services/openaiService";
-import { getProfile, updateProfile } from "../services/profileService";
+import { getProfile } from "../services/profileService";
 import TemporaryNotification from "../components/TemporaryNotification";
 import ProfileMenu from "../components/ProfileMenu";
+import { deriveProspectCompanyLabel } from "../utils/prospectUrl";
 import "./DraftFormPage.css";
-// import CreditBalanceDisplay from "../components/CreditBalanceDisplay";
 
-const REQUIRED_LIMITS = {
-  companyName: 50,
-  prospectFirstName: 30,
-  prospectCompany: 50,
-  prospectTitle: 70,
-  senderNameTitle: 50,
-  productService: 200,
-};
+const PROSPECT_URL_MAX = 2048;
+const OFFER_OVERRIDE_MAX = 200;
 
-const OPTIONAL_LIMITS = {
-  keyDifferentiator: 150,
-  primaryPain: 120,
-  socialProofClient: 60,
-  socialProofResult: 90,
-  line3Input: 60,
-};
+const DEFAULT_CTA = "Cold Outreach";
 
-function stripHtml(value) {
-  return value.replace(/<[^>]*>/g, "");
+function sanitizeUrl(value) {
+  const t = value.trim();
+  if (!t) return "";
+  try {
+    const u = new URL(t);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+    return u.href.length > PROSPECT_URL_MAX
+      ? u.href.slice(0, PROSPECT_URL_MAX)
+      : u.href;
+  } catch {
+    return "";
+  }
 }
 
-function normalizeWhitespace(value) {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function sanitizeName(value) {
-  return normalizeWhitespace(stripHtml(value)).replace(/[^a-zA-Z\s'-]/g, "");
-}
-
-function sanitizeCompany(value) {
-  return normalizeWhitespace(stripHtml(value)).replace(/[<>#]/g, "");
-}
-
-function sanitizePlainText(value) {
-  return normalizeWhitespace(stripHtml(value)).replace(/[<>#{}]/g, "");
-}
-
-function hasMultipleSentences(value) {
-  const matches = value.match(/[.!?]/g) || [];
-  return matches.length > 1;
+function sanitizeOffer(value) {
+  return value
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/[<>#{}]/g, "")
+    .trim();
 }
 
 export default function DraftFormPage() {
-  // Step 1: Must-Have Required Fields
-  // Credit balance display
-  // ...existing code...
-  const [companyName, setCompanyName] = useState("");
-  const [prospectFirstName, setProspectFirstName] = useState("");
-  const [prospectCompany, setProspectCompany] = useState("");
-  const [prospectTitle, setProspectTitle] = useState("");
-  const [senderNameTitle, setSenderNameTitle] = useState("");
-  const [productService, setProductService] = useState("");
-  const [ctaType, setCtaType] = useState("Cold Outreach");
+  const [prospectSourceUrl, setProspectSourceUrl] = useState("");
+  const [offerOverride, setOfferOverride] = useState("");
 
-  // Step 2: Strongly Recommended Fields
-  const [keyDifferentiator, setKeyDifferentiator] = useState("");
-  const [primaryPain, setPrimaryPain] = useState("");
-  const [socialProofClient, setSocialProofClient] = useState("");
+  const [profileSenderNameTitle, setProfileSenderNameTitle] = useState("");
+  const [profileOffer, setProfileOffer] = useState("");
+  const [profileSocialProofClient, setProfileSocialProofClient] = useState("");
+  const [profileSocialProofResult, setProfileSocialProofResult] = useState("");
 
-  // Optional fields (stored but used with inference)
-  const [socialProofResult, setSocialProofResult] = useState("");
-
-  // Signature line 3 input
-  const [line3Input, setLine3Input] = useState("");
-  const [line3WordCount, setLine3WordCount] = useState(0);
-
-  // Prospect company description (optional, for personalization)
-  const [companyDescription, setCompanyDescription] = useState("");
-
-  // Word counts for other fields
-  const [differentiatorWordCount, setDifferentiatorWordCount] = useState(0);
-  const [painWordCount, setPainWordCount] = useState(0);
-  const [socialProofClientWordCount, setSocialProofClientWordCount] =
-    useState(0);
-  const [socialProofResultWordCount, setSocialProofResultWordCount] =
-    useState(0);
-
-  // Character counts for optional fields
-  const [keyDifferentiatorCharCount, setKeyDifferentiatorCharCount] =
-    useState(0);
-  const [primaryPainCharCount, setPrimaryPainCharCount] = useState(0);
-  const [socialProofClientCharCount, setSocialProofClientCharCount] =
-    useState(0);
-  const [socialProofResultCharCount, setSocialProofResultCharCount] =
-    useState(0);
-  const [line3CharCount, setLine3CharCount] = useState(0);
-
-  // Character counts for required fields
-  const [companyNameCharCount, setCompanyNameCharCount] = useState(0);
-  const [prospectFirstNameCharCount, setProspectFirstNameCharCount] =
-    useState(0);
-  const [prospectCompanyCharCount, setProspectCompanyCharCount] = useState(0);
-  const [prospectTitleCharCount, setProspectTitleCharCount] = useState(0);
-  const [senderNameTitleCharCount, setSenderNameTitleCharCount] = useState(0);
-  const [productServiceCharCount, setProductServiceCharCount] = useState(0);
-
-  // UI states
-  const [step, setStep] = useState(1); // Step 1: Must-Have | Step 2: Recommended | Step 3: Generating | Step 4: Results
+  const [step, setStep] = useState(1);
   const [generatedDrafts, setGeneratedDrafts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState(null);
@@ -117,343 +55,156 @@ export default function DraftFormPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
 
-  // CTA Type options for dropdown
-  const ctaTypeOptions = [
-    "Cold Outreach",
-    "Follow-Up",
-    "Demo Request",
-    "Deal Closing",
-  ];
-
-  // Pre-fill from saved profile
   useEffect(() => {
     if (!currentUser) return;
     getProfile(currentUser.uid).then((p) => {
-      if (p.companyName) {
-        setCompanyName(p.companyName);
-        setCompanyNameCharCount(p.companyName.length);
-      }
-      if (p.senderNameTitle) {
-        setSenderNameTitle(p.senderNameTitle);
-        setSenderNameTitleCharCount(p.senderNameTitle.length);
-      }
-      if (p.keyDifferentiator) {
-        setKeyDifferentiator(p.keyDifferentiator);
-        setKeyDifferentiatorCharCount(p.keyDifferentiator.length);
-        const wc = p.keyDifferentiator.trim()
-          ? p.keyDifferentiator.trim().split(/\s+/).length
-          : 0;
-        setDifferentiatorWordCount(wc);
-      }
-      if (p.productService) {
-        setProductService(p.productService);
-        setProductServiceCharCount(p.productService.length);
-      }
-      if (p.socialProofClient) {
-        setSocialProofClient(p.socialProofClient);
-        setSocialProofClientCharCount(p.socialProofClient.length);
-        const wc = p.socialProofClient.trim()
-          ? p.socialProofClient.trim().split(/\s+/).length
-          : 0;
-        setSocialProofClientWordCount(wc);
-      }
-      if (p.socialProofResult) {
-        setSocialProofResult(p.socialProofResult);
-        setSocialProofResultCharCount(p.socialProofResult.length);
-        const wc = p.socialProofResult.trim()
-          ? p.socialProofResult.trim().split(/\s+/).length
-          : 0;
-        setSocialProofResultWordCount(wc);
-      }
-      if (p.line3Input) {
-        setLine3Input(p.line3Input);
-        setLine3CharCount(p.line3Input.length);
-        const wc = p.line3Input.trim()
-          ? p.line3Input.trim().split(/\s+/).length
-          : 0;
-        setLine3WordCount(wc);
-      }
+      if (p.senderNameTitle) setProfileSenderNameTitle(p.senderNameTitle);
+      if (p.productService) setProfileOffer(p.productService);
+      if (p.socialProofClient) setProfileSocialProofClient(p.socialProofClient);
+      if (p.socialProofResult) setProfileSocialProofResult(p.socialProofResult);
     });
   }, [currentUser]);
 
-  /**
-   * Step 1 → Step 2: Proceed to optional fields after validating must-have
-   */
-  async function handleProceedToStep2() {
-    const missingFields = [];
-    const lengthErrors = [];
-
-    const sanitizedCompanyName = sanitizeCompany(companyName);
-    const sanitizedProspectFirstName = sanitizeName(prospectFirstName);
-    const sanitizedProspectCompany = sanitizeCompany(prospectCompany);
-    const sanitizedProspectTitle = sanitizePlainText(prospectTitle);
-    const sanitizedSenderNameTitle = sanitizePlainText(senderNameTitle);
-    const sanitizedProductService = sanitizePlainText(productService);
-    const sanitizedKeyDifferentiator = sanitizePlainText(keyDifferentiator);
-
-    setCompanyName(sanitizedCompanyName);
-    setProspectFirstName(sanitizedProspectFirstName);
-    setProspectCompany(sanitizedProspectCompany);
-    setProspectTitle(sanitizedProspectTitle);
-    setSenderNameTitle(sanitizedSenderNameTitle);
-    setProductService(sanitizedProductService);
-    setKeyDifferentiator(sanitizedKeyDifferentiator);
-    setCompanyNameCharCount(sanitizedCompanyName.length);
-    setProspectFirstNameCharCount(sanitizedProspectFirstName.length);
-    setProspectCompanyCharCount(sanitizedProspectCompany.length);
-    setProspectTitleCharCount(sanitizedProspectTitle.length);
-    setSenderNameTitleCharCount(sanitizedSenderNameTitle.length);
-    setProductServiceCharCount(sanitizedProductService.length);
-    setKeyDifferentiatorCharCount(sanitizedKeyDifferentiator.length);
-
-    if (!sanitizedCompanyName) missingFields.push("Your Company Name");
-    if (!sanitizedProspectFirstName) missingFields.push("Prospect First Name");
-    if (!sanitizedProspectCompany) missingFields.push("Prospect Company");
-    if (!sanitizedSenderNameTitle) missingFields.push("Your Name & Title");
-    if (!sanitizedProductService) missingFields.push("Product/Service");
-    if (!sanitizedKeyDifferentiator) missingFields.push("Key Differentiator");
-
-    if (sanitizedCompanyName.length > REQUIRED_LIMITS.companyName)
-      lengthErrors.push("Your Company Name must be 50 characters or less");
-    if (sanitizedProspectFirstName.length > REQUIRED_LIMITS.prospectFirstName)
-      lengthErrors.push("Prospect First Name must be 30 characters or less");
-    if (sanitizedProspectCompany.length > REQUIRED_LIMITS.prospectCompany)
-      lengthErrors.push("Prospect Company must be 50 characters or less");
-    if (sanitizedProspectTitle.length > REQUIRED_LIMITS.prospectTitle)
-      lengthErrors.push("Prospect Title must be 70 characters or less");
-    if (sanitizedSenderNameTitle.length > REQUIRED_LIMITS.senderNameTitle)
-      lengthErrors.push("Your Name & Title must be 50 characters or less");
-    if (sanitizedProductService.length > REQUIRED_LIMITS.productService)
-      lengthErrors.push("Product/Service must be 200 characters or less");
-    if (hasMultipleSentences(sanitizedProductService))
-      lengthErrors.push("Product/Service should be a single sentence");
-    if (sanitizedKeyDifferentiator.length > OPTIONAL_LIMITS.keyDifferentiator)
-      lengthErrors.push("Key Differentiator must be 150 characters or less");
-    if (differentiatorWordCount > 25)
-      lengthErrors.push("Key Differentiator must be 25 words or less");
-
-    if (missingFields.length > 0) {
-      setNotification({
-        message: `Please fill in: ${missingFields.join(", ")}`,
-        type: "error",
-      });
-      return;
-    }
-
-    if (lengthErrors.length > 0) {
-      setNotification({
-        message: `Please fix the following: ${lengthErrors.join(", ")}`,
-        type: "error",
-      });
-      return;
-    }
-
-    // Auto-save profile fields for future pre-fill
-    try {
-      await updateProfile(currentUser.uid, {
-        companyName: sanitizedCompanyName,
-        senderNameTitle: sanitizedSenderNameTitle,
-        productService: sanitizedProductService,
-        keyDifferentiator: sanitizedKeyDifferentiator,
-      });
-    } catch (e) {
-      // Silent fail - don't block user flow
-    }
-
-    setNotification(null);
-    setStep(2);
-  }
-
-  /**
-   * Step 2 → Step 3 → Step 4: Generate 2 drafts with inferred values
-   */
   async function handleGenerate(e) {
     e.preventDefault();
+    setNotification(null);
 
-    // Validate word counts before generating
-    const errors = [];
-
-    if (line3WordCount > 10) {
-      errors.push("Signature 3rd Line must be 10 words or less");
-    }
-
-    if (differentiatorWordCount > 25) {
-      errors.push("Key Differentiator must be 25 words or less");
-    }
-
-    if (keyDifferentiatorCharCount > OPTIONAL_LIMITS.keyDifferentiator) {
-      errors.push("Key Differentiator must be 150 characters or less");
-    }
-
-    if (painWordCount > 20) {
-      errors.push("Primary Pain Point must be 20 words or less");
-    }
-
-    if (primaryPainCharCount > OPTIONAL_LIMITS.primaryPain) {
-      errors.push("Primary Pain Point must be 120 characters or less");
-    }
-
-    if (socialProofClientWordCount > 10) {
-      errors.push("Social Proof Client must be 10 words or less");
-    }
-
-    if (socialProofClientCharCount > OPTIONAL_LIMITS.socialProofClient) {
-      errors.push("Social Proof Client must be 60 characters or less");
-    }
-
-    if (socialProofResultWordCount > 15) {
-      errors.push("Social Proof Result must be 15 words or less");
-    }
-
-    if (socialProofResultCharCount > OPTIONAL_LIMITS.socialProofResult) {
-      errors.push("Social Proof Result must be 90 characters or less");
-    }
-
-    if (line3CharCount > OPTIONAL_LIMITS.line3Input) {
-      errors.push("Signature 3rd Line must be 60 characters or less");
-    }
-
-    if (errors.length > 0) {
+    const sanitizedUrl = sanitizeUrl(prospectSourceUrl);
+    if (!sanitizedUrl) {
       setNotification({
-        message: `Please fix the following: ${errors.join(", ")}`,
+        message:
+          "Enter a valid prospect link (https company website or LinkedIn profile).",
         type: "error",
       });
       return;
     }
 
-    // Deduct credits before generating (always, even in mock mode)
-    try {
-      setNotification(null);
-      setLoading(true);
+    const effectiveOffer =
+      sanitizeOffer(offerOverride) || sanitizeOffer(profileOffer);
+    if (!profileSenderNameTitle.trim()) {
+      setNotification({
+        message: "Add your name and title under Your Saved Info first.",
+        type: "error",
+      });
+      return;
+    }
+    if (!effectiveOffer) {
+      setNotification({
+        message:
+          "Add your default offer under Your Saved Info, or enter an optional offer for this run.",
+        type: "error",
+      });
+      return;
+    }
 
+    const overrideSan = sanitizeOffer(offerOverride);
+    if (overrideSan.length > OFFER_OVERRIDE_MAX) {
+      setNotification({
+        message: `Optional offer must be ${OFFER_OVERRIDE_MAX} characters or less.`,
+        type: "error",
+      });
+      return;
+    }
+
+    if (!currentUser) {
+      navigate("/login");
+      return;
+    }
+
+    setProspectSourceUrl(sanitizedUrl);
+    setStep(2);
+    setLoading(true);
+
+    try {
       const { deductCredits, getCreditBalance } =
         await import("../services/creditService");
-      // Check balance first
       const balance = await getCreditBalance(currentUser.uid);
       if (balance < 2) {
+        setStep(1);
+        setLoading(false);
         setNotification({
           message: "Insufficient credits. Please purchase more.",
           type: "error",
         });
-        setLoading(false);
         return;
       }
       try {
         await deductCredits(currentUser.uid, 2, "email_generation");
       } catch (creditError) {
+        setStep(1);
+        setLoading(false);
         setNotification({
           message:
             creditError.message ||
             "Insufficient credits. Please purchase more.",
           type: "error",
         });
-        setLoading(false);
         return;
       }
 
-      setStep(3); // Show spinner
+      const label = deriveProspectCompanyLabel(sanitizedUrl);
 
-      const sanitizedCompanyName = sanitizeCompany(companyName);
-      const sanitizedProspectFirstName = sanitizeName(prospectFirstName);
-      const sanitizedProspectCompany = sanitizeCompany(prospectCompany);
-      const sanitizedProspectTitle = sanitizePlainText(prospectTitle);
-      const sanitizedSenderNameTitle = sanitizePlainText(senderNameTitle);
-      const sanitizedProductService = sanitizePlainText(productService);
-      const sanitizedLine3Input = sanitizePlainText(line3Input);
-      const sanitizedKeyDifferentiator = sanitizePlainText(keyDifferentiator);
-      const sanitizedPrimaryPain = sanitizePlainText(primaryPain);
-      const sanitizedSocialProofClient = sanitizePlainText(socialProofClient);
-      const sanitizedSocialProofResult = sanitizePlainText(socialProofResult);
-
-      // Auto-save all profile fields for future pre-fill
-      try {
-        await updateProfile(currentUser.uid, {
-          companyName: sanitizedCompanyName,
-          senderNameTitle: sanitizedSenderNameTitle,
-          productService: sanitizedProductService,
-          keyDifferentiator: sanitizedKeyDifferentiator,
-          socialProofClient: sanitizedSocialProofClient,
-          socialProofResult: sanitizedSocialProofResult,
-          line3Input: sanitizedLine3Input,
-        });
-      } catch (e) {
-        // Silent fail - don't block generation
-      }
-
-      // Send form data to API; prompt is built on server (hidden from browser)
       const drafts = await generateEmailDrafts({
-        recipientName: sanitizedProspectFirstName,
-        recipientEmail: `${sanitizedProspectFirstName.toLowerCase()}@${sanitizedProspectCompany.toLowerCase().replace(/\s+/g, "")}.com`,
+        recipientName: "there",
+        recipientEmail: "prospect@placeholder.local",
         formData: {
-          companyName: sanitizedCompanyName,
-          senderNameTitle: sanitizedSenderNameTitle,
-          productService: sanitizedProductService,
-          prospectFirstName: sanitizedProspectFirstName,
-          prospectCompany: sanitizedProspectCompany,
-          prospectTitle: sanitizedProspectTitle,
-          ctaType,
+          companyName: "",
+          senderNameTitle: profileSenderNameTitle.trim(),
+          productService: effectiveOffer,
+          prospectFirstName: "",
+          prospectCompany: label,
+          prospectTitle: "",
+          ctaType: DEFAULT_CTA,
           tone: "Confident and professional",
-          line3Input: sanitizedLine3Input,
-          keyDifferentiator: sanitizedKeyDifferentiator,
-          socialProofClient: sanitizedSocialProofClient,
-          socialProofResult: sanitizedSocialProofResult,
-          primaryPain: sanitizedPrimaryPain,
-          companyDescription: companyDescription.trim() || undefined,
+          socialProofClient: profileSocialProofClient.trim(),
+          socialProofResult: profileSocialProofResult.trim(),
+          prospectSourceUrl: sanitizedUrl,
         },
-        goal: ctaType,
+        goal: DEFAULT_CTA,
         tone: "Confident but conversational",
       });
 
-      // Take only first 2 drafts
       const twoLatestDrafts = drafts.slice(0, 2);
       setGeneratedDrafts(twoLatestDrafts);
+      const who = label || "your prospect";
       setNotification({
-        message: `Drafts generated for ${companyName}. Choose your favorite and save.`,
+        message: `Drafts generated for ${who}. Choose your favorite and save.`,
         type: "success",
       });
-      setStep(4); // Show results
+      setStep(3);
     } catch (error) {
+      setStep(1);
       setNotification({
         message:
           error.message || "Failed to generate email drafts. Please try again.",
         type: "error",
       });
-      setStep(2); // Go back to Step 2 on error
     } finally {
       setLoading(false);
     }
   }
 
-  /**
-   * Save a specific draft to Firestore
-   */
   async function handleSaveDraft(draftText, index) {
-    if (savedDraftIndexes.includes(index)) {
-      return;
-    }
+    if (savedDraftIndexes.includes(index)) return;
 
     try {
       setNotification(null);
+      const sanitizedUrl = sanitizeUrl(prospectSourceUrl);
+      const effectiveOffer =
+        sanitizeOffer(offerOverride) || sanitizeOffer(profileOffer);
+      const label = deriveProspectCompanyLabel(sanitizedUrl);
 
-      // Add draft to Firestore with all fields for regeneration capability
       await addDoc(collection(db, "users", currentUser.uid, "drafts"), {
         userId: currentUser.uid,
-        // Required fields
-        prospectFirstName,
-        prospectCompany,
-        prospectTitle,
-        companyName,
-        senderNameTitle,
-        productService,
-        ctaType,
+        prospectSourceUrl: sanitizedUrl,
+        prospectCompany: label || null,
+        senderNameTitle: profileSenderNameTitle.trim(),
+        productService: effectiveOffer,
+        ctaType: DEFAULT_CTA,
         tone: "Confident but conversational",
-        // Strongly recommended fields
-        keyDifferentiator: keyDifferentiator || null,
-        primaryPain: primaryPain || null,
-        socialProofClient: socialProofClient || null,
-        // Optional fields
-        socialProofResult: socialProofResult || null,
-        // Generated output
+        socialProofClient: profileSocialProofClient.trim() || null,
+        socialProofResult: profileSocialProofResult.trim() || null,
+        offerOverrideUsed: Boolean(sanitizeOffer(offerOverride)),
         generatedText: draftText,
         timestamp: serverTimestamp(),
       });
@@ -463,8 +214,7 @@ export default function DraftFormPage() {
         type: "success",
       });
       setSavedDraftIndexes((prev) => [...prev, index]);
-    } catch (error) {
-      // removed console.error
+    } catch {
       setNotification({
         message: "Failed to save draft. Please try again.",
         type: "error",
@@ -472,28 +222,27 @@ export default function DraftFormPage() {
     }
   }
 
-  /**
-   * Go back to previous step
-   */
   function handleBackStep() {
-    if (step === 2) {
+    if (step === 3) {
       setStep(1);
-      setNotification(null);
-    } else if (step === 4) {
-      setStep(2);
       setGeneratedDrafts([]);
       setSavedDraftIndexes([]);
       setNotification(null);
     }
   }
 
+  const prospectLabel = deriveProspectCompanyLabel(
+    sanitizeUrl(prospectSourceUrl) || prospectSourceUrl.trim(),
+  );
+
   return (
     <div className="draft-form-container">
-      {/* Credit Balance Display */}
-      <div style={{ marginBottom: 16 }}>{/* <CreditBalanceDisplay /> */}</div>
-      {/* Header */}
       <header className="form-header">
-        <button onClick={() => navigate("/dashboard")} className="back-button">
+        <button
+          type="button"
+          onClick={() => navigate("/dashboard")}
+          className="back-button"
+        >
           <svg
             className="icon"
             fill="none"
@@ -522,486 +271,101 @@ export default function DraftFormPage() {
           onHide={() => setNotification(null)}
         />
 
-        {/* STEP 1: Must-Have Input */}
         {step === 1 && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleProceedToStep2();
-            }}
-            className="draft-form"
-          >
+          <form onSubmit={handleGenerate} className="draft-form">
             <div className="form-section">
-              <h2>Step 1: Must-Have Input</h2>
-              <p className="section-note">
-                Fill in the required fields to get started
-              </p>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="prospectFirstName">
-                    Prospect First Name *{" "}
-                    <span className="field-note">(Used in subject line)</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="prospectFirstName"
-                    value={prospectFirstName}
-                    onChange={(e) => {
-                      // Allow spaces, only remove unwanted chars
-                      const value = e.target.value.replace(
-                        /[^a-zA-Z\s'-]/g,
-                        "",
-                      );
-                      setProspectFirstName(value);
-                      setProspectFirstNameCharCount(value.length);
-                    }}
-                    placeholder="John"
-                    required
-                  />
-                  {prospectFirstNameCharCount >
-                    REQUIRED_LIMITS.prospectFirstName && (
-                    <span className="char-count char-count-error">
-                      {prospectFirstNameCharCount} /{" "}
-                      {REQUIRED_LIMITS.prospectFirstName} characters
-                    </span>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="prospectCompany">
-                    Prospect Company *{" "}
-                    <span className="field-note">
-                      (Required for personalization)
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    id="prospectCompany"
-                    value={prospectCompany}
-                    onChange={(e) => {
-                      // Allow spaces, only remove unwanted chars
-                      const value = e.target.value.replace(/[<>#]/g, "");
-                      setProspectCompany(value);
-                      setProspectCompanyCharCount(value.length);
-                    }}
-                    placeholder="Acme Corp"
-                    required
-                  />
-                  {prospectCompanyCharCount >
-                    REQUIRED_LIMITS.prospectCompany && (
-                    <span className="char-count char-count-error">
-                      {prospectCompanyCharCount} /{" "}
-                      {REQUIRED_LIMITS.prospectCompany} characters
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="prospectTitle">
-                    Prospect Title{" "}
-                    <span className="field-note">(Optional buyer persona)</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="prospectTitle"
-                    value={prospectTitle}
-                    onChange={(e) => {
-                      // Allow spaces, only remove unwanted chars
-                      const value = e.target.value.replace(/[<>#{}]/g, "");
-                      setProspectTitle(value);
-                      setProspectTitleCharCount(value.length);
-                    }}
-                    placeholder="Head of Sales / VP / Founder"
-                  />
-                  {prospectTitleCharCount > REQUIRED_LIMITS.prospectTitle && (
-                    <span className="char-count char-count-error">
-                      {prospectTitleCharCount} / {REQUIRED_LIMITS.prospectTitle}{" "}
-                      characters
-                    </span>
-                  )}
-                </div>
-              </div>
+              <h2>Generate from a link</h2>
 
               <div className="form-group">
-                <label htmlFor="productService">
-                  Product/Service (1 sentence) *{" "}
-                  <span className="field-note">(What you're selling)</span>
+                <label htmlFor="prospectSourceUrl">
+                  Prospect source <span className="field-note">(required)</span>
                 </label>
                 <input
-                  type="text"
-                  id="productService"
-                  value={productService}
-                  onChange={(e) => {
-                    // Allow spaces, only remove unwanted chars
-                    const value = e.target.value.replace(/[<>#{}]/g, "");
-                    setProductService(value);
-                    setProductServiceCharCount(value.length);
-                  }}
-                  placeholder="AI-powered email automation platform for B2B sales teams"
+                  type="url"
+                  id="prospectSourceUrl"
+                  inputMode="url"
+                  autoComplete="url"
+                  value={prospectSourceUrl}
+                  onChange={(e) => setProspectSourceUrl(e.target.value)}
+                  placeholder="https://company.com or https://linkedin.com/in/…"
+                  disabled={loading}
+                  maxLength={PROSPECT_URL_MAX}
                   required
                 />
-                {productServiceCharCount > REQUIRED_LIMITS.productService && (
-                  <span className="char-count char-count-error">
-                    {productServiceCharCount} / {REQUIRED_LIMITS.productService}{" "}
-                    characters
+                {prospectSourceUrl.trim() && (
+                  <span className="char-count">
+                    {prospectLabel
+                      ? `Preview: ${prospectLabel}`
+                      : "Paste a valid URL"}
                   </span>
                 )}
               </div>
 
               <div className="form-group">
-                <label htmlFor="ctaType">
-                  Call-to-Action Type *{" "}
-                  <span className="field-note">(Email structure & intent)</span>
+                <label htmlFor="offerOverride">
+                  Your offer{" "}
+                  <span className="field-note">(optional override)</span>
                 </label>
-                <select
-                  id="ctaType"
-                  value={ctaType}
-                  onChange={(e) => setCtaType(e.target.value)}
-                  required
-                >
-                  {ctaTypeOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  id="offerOverride"
+                  value={offerOverride}
+                  onChange={(e) => setOfferOverride(e.target.value)}
+                  placeholder="Leave blank to use the offer from Your Saved Info"
+                  disabled={loading}
+                  maxLength={OFFER_OVERRIDE_MAX}
+                />
               </div>
 
-              <div className="prefilled-fields">
-                <div className="form-group">
-                  <label htmlFor="companyName">
-                    Your Company Name *{" "}
-                    <span className="field-note">(Sender credibility)</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="companyName"
-                    value={companyName}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[<>#]/g, "");
-                      setCompanyName(value);
-                      setCompanyNameCharCount(value.length);
-                    }}
-                    placeholder="Fanthom"
-                    required
-                  />
-                  {companyNameCharCount > REQUIRED_LIMITS.companyName && (
-                    <span className="char-count char-count-error">
-                      {companyNameCharCount} / {REQUIRED_LIMITS.companyName}{" "}
-                      characters
-                    </span>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="senderNameTitle">
-                    Your Name & Title *{" "}
-                    <span className="field-note">(Your signature)</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="senderNameTitle"
-                    value={senderNameTitle}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[<>#{}]/g, "");
-                      setSenderNameTitle(value);
-                      setSenderNameTitleCharCount(value.length);
-                    }}
-                    placeholder="Jane Smith, VP of Sales"
-                    required
-                  />
-                  {senderNameTitleCharCount >
-                    REQUIRED_LIMITS.senderNameTitle && (
-                    <span className="char-count char-count-error">
-                      {senderNameTitleCharCount} /{" "}
-                      {REQUIRED_LIMITS.senderNameTitle} characters
-                    </span>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="keyDifferentiator">
-                    Key Differentiator *{" "}
-                    <span className="field-note">
-                      (What makes you different, max 25 words)
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    id="keyDifferentiator"
-                    value={keyDifferentiator}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[<>#{}]/g, "");
-                      setKeyDifferentiator(value);
-                      setKeyDifferentiatorCharCount(value.length);
-                      const wordCount = value.trim()
-                        ? value.trim().split(/\s+/).length
-                        : 0;
-                      setDifferentiatorWordCount(wordCount);
-                    }}
-                    placeholder="e.g. Only platform with native CRM integration"
-                    required
-                  />
-                  {keyDifferentiatorCharCount >
-                    OPTIONAL_LIMITS.keyDifferentiator && (
-                    <span className="char-count char-count-error">
-                      {keyDifferentiatorCharCount} /{" "}
-                      {OPTIONAL_LIMITS.keyDifferentiator} characters
-                    </span>
-                  )}
-                  {differentiatorWordCount > 25 && (
-                    <span className="word-count word-count-error">
-                      {differentiatorWordCount} / 25 words
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <button type="submit" className="btn btn-primary btn-large">
-                Continue to Optional Fields →
+              <button
+                type="submit"
+                className="btn btn-primary btn-large btn-generate"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner"></span>
+                    Generating…
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="icon"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                    Generate 2 email drafts
+                  </>
+                )}
               </button>
             </div>
           </form>
         )}
 
-        {/* STEP 2: Strongly Recommended Fields */}
         {step === 2 && (
-          <form onSubmit={handleGenerate} className="draft-form">
-            <div className="form-section">
-              <h2>Step 2: Enhance Your Email (Optional)</h2>
-              <p className="section-note">
-                Fill in any of these to increase email relevance. Skip if you
-                want Fanthom to infer.
-              </p>
-
-              <div className="form-group">
-                <label htmlFor="companyDescription">
-                  Prospect Company Description{" "}
-                  <span className="field-note">
-                    (Helps personalize the email)
-                  </span>
-                </label>
-                <textarea
-                  id="companyDescription"
-                  value={companyDescription}
-                  onChange={(e) => setCompanyDescription(e.target.value)}
-                  placeholder="e.g. B2B SaaS selling sales automation tools to mid-market teams. Recently raised Series B. Focus on outbound and pipeline."
-                  disabled={loading}
-                  rows={3}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="primaryPain">
-                  Primary Pain Point{" "}
-                  <span className="field-note">
-                    (Leave blank for auto-inference, max 20 words)
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  id="primaryPain"
-                  value={primaryPain}
-                  onChange={(e) => {
-                    // Allow spaces, only remove unwanted chars
-                    const value = e.target.value.replace(/[<>#{}]/g, "");
-                    setPrimaryPain(value);
-                    setPrimaryPainCharCount(value.length);
-                    const wordCount = value.trim()
-                      ? value.trim().split(/\s+/).length
-                      : 0;
-                    setPainWordCount(wordCount);
-                  }}
-                  placeholder="e.g. low reply rates and weak pipeline"
-                  disabled={loading}
-                />
-                {primaryPainCharCount > OPTIONAL_LIMITS.primaryPain && (
-                  <span className="char-count char-count-error">
-                    {primaryPainCharCount} / {OPTIONAL_LIMITS.primaryPain}{" "}
-                    characters
-                  </span>
-                )}
-                {painWordCount > 20 && (
-                  <span className="word-count word-count-error">
-                    {painWordCount} / 20 words
-                  </span>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="socialProofClient">
-                  Social Proof Client{" "}
-                  <span className="field-note">
-                    (Company names for credibility, max 10 words)
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  id="socialProofClient"
-                  value={socialProofClient}
-                  onChange={(e) => {
-                    // Allow spaces, only remove unwanted chars
-                    const value = e.target.value.replace(/[<>#{}]/g, "");
-                    setSocialProofClient(value);
-                    setSocialProofClientCharCount(value.length);
-                    const wordCount = value.trim()
-                      ? value.trim().split(/\s+/).length
-                      : 0;
-                    setSocialProofClientWordCount(wordCount);
-                  }}
-                  placeholder="e.g. Salesforce, HubSpot, Outreach"
-                  disabled={loading}
-                />
-                {socialProofClientCharCount >
-                  OPTIONAL_LIMITS.socialProofClient && (
-                  <span className="char-count char-count-error">
-                    {socialProofClientCharCount} /{" "}
-                    {OPTIONAL_LIMITS.socialProofClient} characters
-                  </span>
-                )}
-                {socialProofClientWordCount > 10 && (
-                  <span className="word-count word-count-error">
-                    {socialProofClientWordCount} / 10 words
-                  </span>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="socialProofResult">
-                  Social Proof Result{" "}
-                  <span className="field-note">
-                    (Metrics for proof credibility, max 15 words)
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  id="socialProofResult"
-                  value={socialProofResult}
-                  onChange={(e) => {
-                    // Allow spaces, only remove unwanted chars
-                    const value = e.target.value.replace(/[<>#{}]/g, "");
-                    setSocialProofResult(value);
-                    setSocialProofResultCharCount(value.length);
-                    const wordCount = value.trim()
-                      ? value.trim().split(/\s+/).length
-                      : 0;
-                    setSocialProofResultWordCount(wordCount);
-                  }}
-                  placeholder="e.g. 34% reply rate increase, 2x pipeline growth"
-                  disabled={loading}
-                />
-                {socialProofResultCharCount >
-                  OPTIONAL_LIMITS.socialProofResult && (
-                  <span className="char-count char-count-error">
-                    {socialProofResultCharCount} /{" "}
-                    {OPTIONAL_LIMITS.socialProofResult} characters
-                  </span>
-                )}
-                {socialProofResultWordCount > 15 && (
-                  <span className="word-count word-count-error">
-                    {socialProofResultWordCount} / 15 words
-                  </span>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="line3Input">
-                  Signature 3rd Line{" "}
-                  <span className="field-note">
-                    (Positioning text or booking link, max 10 words)
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  id="line3Input"
-                  value={line3Input}
-                  onChange={(e) => {
-                    // Allow spaces, only remove unwanted chars
-                    const value = e.target.value.replace(/[<>#{}]/g, "");
-                    setLine3Input(value);
-                    setLine3CharCount(value.length);
-                    const wordCount = value.trim()
-                      ? value.trim().split(/\s+/).length
-                      : 0;
-                    setLine3WordCount(wordCount);
-                  }}
-                  placeholder="e.g. B2B SaaS outbound specialist"
-                  disabled={loading}
-                />
-                {line3CharCount > OPTIONAL_LIMITS.line3Input && (
-                  <span className="char-count char-count-error">
-                    {line3CharCount} / {OPTIONAL_LIMITS.line3Input} characters
-                  </span>
-                )}
-                {line3Input.trim() && line3WordCount > 10 && (
-                  <span className="word-count word-count-error">
-                    {line3WordCount} / 10 words
-                  </span>
-                )}
-              </div>
-
-              <div className="button-group">
-                <button
-                  type="button"
-                  onClick={handleBackStep}
-                  className="btn btn-secondary"
-                  disabled={loading}
-                >
-                  ← Back to Step 1
-                </button>
-
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-large btn-generate"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <span className="spinner"></span>
-                      Fanthom is crafting emails for {companyName}...
-                    </>
-                  ) : (
-                    <>
-                      <svg
-                        className="icon"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 10V3L4 14h7v7l9-11h-7z"
-                        />
-                      </svg>
-                      Generate 2 Email Drafts
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </form>
-        )}
-
-        {/* STEP 3: Generating (Spinner) */}
-        {step === 3 && (
           <div className="generating-section">
             <div className="spinner-large"></div>
-            <h2>Fanthom is crafting emails for {companyName}...</h2>
-            <p>This takes 10-15 seconds. Please wait.</p>
+            <h2>Crafting your drafts…</h2>
+            <p>This usually takes 10–20 seconds.</p>
           </div>
         )}
 
-        {/* STEP 4: Generated Drafts Display */}
-        {step === 4 && generatedDrafts.length > 0 && (
+        {step === 3 && generatedDrafts.length > 0 && (
           <div className="drafts-section">
-            <h2>2 Email Drafts for {companyName}</h2>
+            <h2>
+              2 email drafts
+              {prospectLabel ? ` for ${prospectLabel}` : ""}
+            </h2>
             <p className="drafts-subtitle">
-              Ready to send. Pick your favorite and save to dashboard.
+              Pick your favorite and save to the dashboard.
             </p>
 
             <div className="drafts-list">
@@ -1013,9 +377,9 @@ export default function DraftFormPage() {
                       {draft.length} characters
                     </span>
                     <button
+                      type="button"
                       onClick={() => handleSaveDraft(draft, index)}
                       className="btn btn-save"
-                      type="button"
                       disabled={savedDraftIndexes.includes(index)}
                     >
                       <svg
@@ -1033,7 +397,7 @@ export default function DraftFormPage() {
                       </svg>
                       {savedDraftIndexes.includes(index)
                         ? "Saved"
-                        : "Save Draft"}
+                        : "Save draft"}
                     </button>
                   </div>
                   <div className="draft-preview-content">
@@ -1046,10 +410,17 @@ export default function DraftFormPage() {
             <div className="button-group button-group-center">
               <button
                 type="button"
+                onClick={handleBackStep}
+                className="btn btn-secondary"
+              >
+                ← Generate again
+              </button>
+              <button
+                type="button"
                 onClick={() => navigate("/dashboard")}
                 className="btn btn-secondary"
               >
-                Go to Dashboard
+                Go to dashboard
               </button>
             </div>
           </div>

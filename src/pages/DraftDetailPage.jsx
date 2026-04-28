@@ -193,18 +193,47 @@ export default function DraftDetailPage() {
           </div>
 
           <div className="info-grid">
+            {draft.prospectSourceUrl ? (
+              <div className="info-item full-width">
+                <label>Prospect source</label>
+                <p>
+                  <a
+                    href={draft.prospectSourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {draft.prospectSourceUrl}
+                  </a>
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="info-item">
+                  <label>Prospect name</label>
+                  <p>{draft.prospectFirstName || "—"}</p>
+                </div>
+                <div className="info-item">
+                  <label>Prospect company</label>
+                  <p>{draft.prospectCompany || "—"}</p>
+                </div>
+              </>
+            )}
+            {draft.prospectCompany && draft.prospectSourceUrl && (
+              <div className="info-item">
+                <label>Derived label</label>
+                <p>{draft.prospectCompany}</p>
+              </div>
+            )}
             <div className="info-item">
-              <label>Prospect Name:</label>
-              <p>{draft.prospectFirstName}</p>
-            </div>
-            <div className="info-item">
-              <label>Prospect Company:</label>
-              <p>{draft.prospectCompany}</p>
-            </div>
-            <div className="info-item">
-              <label>Goal:</label>
+              <label>Goal</label>
               <p>{draft.ctaType}</p>
             </div>
+            {draft.productService && (
+              <div className="info-item full-width">
+                <label>Offer used</label>
+                <p>{draft.productService}</p>
+              </div>
+            )}
           </div>
 
           {draft.context && (

@@ -8,6 +8,15 @@ import "./DashboardPage.css";
 import CreditBalanceDisplay from "../components/CreditBalanceDisplay";
 import ProfileMenu from "../components/ProfileMenu";
 
+function shortUrlHost(url) {
+  if (!url || typeof url !== "string") return "";
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "Link";
+  }
+}
+
 export default function DashboardPage() {
   const [drafts, setDrafts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -214,10 +223,20 @@ export default function DashboardPage() {
                 <div className="card-header">
                   <div className="prospect-info">
                     <h3 className="prospect-name">
-                      {draft.prospectFirstName || "Unknown"}{" "}
-                      <span className="prospect-company">
-                        @ {draft.prospectCompany || "Unknown Company"}
-                      </span>
+                      {draft.prospectSourceUrl ? (
+                        <>
+                          {draft.prospectCompany ||
+                            shortUrlHost(draft.prospectSourceUrl)}
+                          <span className="prospect-company"> · from URL</span>
+                        </>
+                      ) : (
+                        <>
+                          {draft.prospectFirstName || "Unknown"}{" "}
+                          <span className="prospect-company">
+                            @ {draft.prospectCompany || "Unknown Company"}
+                          </span>
+                        </>
+                      )}
                     </h3>
                     <span className="cta-badge">{draft.ctaType}</span>
                   </div>
@@ -245,11 +264,16 @@ export default function DashboardPage() {
                         </span>
                       </div>
                     )}
-                    {draft.keyDifferentiator && (
+                    {(draft.keyDifferentiator || draft.productService) && (
                       <div className="highlight-item differentiator">
-                        <span className="highlight-label">Differentiator:</span>
+                        <span className="highlight-label">
+                          {draft.keyDifferentiator ? "Differentiator:" : "Offer:"}
+                        </span>
                         <span className="highlight-value">
-                          {truncateText(draft.keyDifferentiator, 60)}
+                          {truncateText(
+                            draft.keyDifferentiator || draft.productService,
+                            60,
+                          )}
                         </span>
                       </div>
                     )}

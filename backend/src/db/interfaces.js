@@ -12,13 +12,10 @@ export const UserShape = {
   email: "",
   displayName: "",
   authProvider: "",
-  companyName: "",
   senderNameTitle: "",
   productService: "",
-  keyDifferentiator: "",
   socialProofClient: "",
   socialProofResult: "",
-  line3Input: "",
   createdAt: "",
   updatedAt: "",
 };

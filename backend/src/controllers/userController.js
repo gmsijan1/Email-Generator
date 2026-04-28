@@ -30,7 +30,7 @@ export async function getUser(req, res) {
 
 /**
  * PATCH /users/:id
- * Body: { displayName?, companyName?, senderNameTitle?, ... }
+ * Body: { displayName?, senderNameTitle?, productService?, ... }
  * Updates user profile. Requires auth.
  */
 export async function updateUserProfile(req, res) {
@@ -44,13 +44,10 @@ export async function updateUserProfile(req, res) {
 
     const allowed = [
       "displayName",
-      "companyName",
       "senderNameTitle",
       "productService",
-      "keyDifferentiator",
       "socialProofClient",
       "socialProofResult",
-      "line3Input",
     ];
     const updates = {};
     for (const key of allowed) {

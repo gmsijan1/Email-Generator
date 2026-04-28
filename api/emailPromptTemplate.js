@@ -3,6 +3,8 @@
  * SERVER-ONLY: Prompt content comes from EMAIL_PROMPT_TEMPLATE env var (not in code).
  */
 
+import { deriveProspectCompanyLabel } from "./prospectUrl.js";
+
 export function inferPrimaryPain({ prospectTitle }) {
   if (!prospectTitle) return "low outbound effectiveness";
 
@@ -113,7 +115,17 @@ export function buildEmailPrompt({
   socialProofResult = "",
   primaryPain = "",
   companyDescription = "",
+  prospectSourceUrl = "",
 }) {
+  const urlTrimmed = prospectSourceUrl?.trim() || "";
+  const labelFromUrl = urlTrimmed
+    ? deriveProspectCompanyLabel(urlTrimmed)
+    : "";
+  const effectiveProspectCompany =
+    prospectCompany?.trim() || labelFromUrl || "the prospect organization";
+  const effectiveProspectFirstName =
+    prospectFirstName?.trim() || (urlTrimmed ? "there" : "");
+
   const effectiveDifferentiator =
     keyDifferentiator ||
     "Built specifically for outbound sales teams, not generic AI writing";
@@ -139,9 +151,9 @@ export function buildEmailPrompt({
     .replace(/\{\{SENDER_NAME_TITLE\}\}/g, senderNameTitle || "")
     .replace(/\{\{PRODUCT_SERVICE\}\}/g, productService || "")
     .replace(/\{\{EFFECTIVE_DIFFERENTIATOR\}\}/g, effectiveDifferentiator)
-    .replace(/\{\{PROSPECT_FIRST_NAME\}\}/g, prospectFirstName || "")
+    .replace(/\{\{PROSPECT_FIRST_NAME\}\}/g, effectiveProspectFirstName)
     .replace(/\{\{PROSPECT_TITLE\}\}/g, prospectTitle || "")
-    .replace(/\{\{PROSPECT_COMPANY\}\}/g, prospectCompany || "")
+    .replace(/\{\{PROSPECT_COMPANY\}\}/g, effectiveProspectCompany)
     .replace(/\{\{EFFECTIVE_CATEGORY\}\}/g, effectiveCategory)
     .replace(/\{\{SOCIAL_PROOF_DISPLAY\}\}/g, socialProofDisplay)
     .replace(/\{\{RESULT_DISPLAY\}\}/g, resultDisplay)
@@ -153,7 +165,19 @@ export function buildEmailPrompt({
     .replace(
       /\{\{PROSPECT_COMPANY_DESCRIPTION\}\}/g,
       companyDescription?.trim() || "(not provided)",
-    );
+    )
+    .replace(/\{\{PROSPECT_SOURCE_URL\}\}/g, urlTrimmed);
+
+  if (urlTrimmed) {
+    result += `
+
+## PROSPECT SOURCE (PRIMARY CONTEXT)
+- Prospect link (company website or LinkedIn): ${urlTrimmed}
+- Approximate organization / profile label: ${labelFromUrl || "unknown"}
+- Sender company name may be omitted; rely on sender name/title and the offer (product/service) below.
+- No verified prospect first name was provided. Do not invent a specific person. Prefer "Hi there" or a role-anchored opening unless the URL clearly implies a personal name.
+- Stay honest: do not claim you read their site in detail; keep personalization high-level and plausible.`;
+  }
 
   return result.trim();
 }
@@ -165,8 +189,11 @@ function getFallbackTemplate() {
 ## CONTEXT
 - Sender Company: {{COMPANY_NAME}}
 - Sender Name & Title: {{SENDER_NAME_TITLE}}
-- Product/Service: {{PRODUCT_SERVICE}}
-- Prospect: {{PROSPECT_FIRST_NAME}}, {{PROSPECT_TITLE}} at {{PROSPECT_COMPANY}}
+- Offer (product/service): {{PRODUCT_SERVICE}}
+- Prospect source URL: {{PROSPECT_SOURCE_URL}}
+- Prospect (when known): {{PROSPECT_FIRST_NAME}}, {{PROSPECT_TITLE}} at {{PROSPECT_COMPANY}}
+- Social proof (clients): {{SOCIAL_PROOF_DISPLAY}}
+- Social proof (results): {{RESULT_DISPLAY}}
 - Tone: {{TONE}}
 - CTA Type: {{CTA_TYPE}}
 
@@ -175,5 +202,5 @@ function getFallbackTemplate() {
 - EMAIL BODY (75-100 words)
 - VARIANT B: different subject/hook
 
-Use the exact values above—never placeholders`;
+Use the exact values above—never bracketed placeholders`;
 }

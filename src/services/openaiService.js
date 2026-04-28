@@ -25,22 +25,39 @@ export async function generateEmailDrafts({
   tone,
 }) {
   try {
-    // Validate required fields
-    if (!recipientName || !recipientEmail || !goal || !tone) {
-      throw new Error("All fields are required for email generation");
+    const urlOnly = Boolean(formData?.prospectSourceUrl?.trim());
+
+    if (!goal || !tone) {
+      throw new Error("Goal and tone are required for email generation");
     }
     if (!formData && !context) {
       throw new Error("Either formData or context is required");
+    }
+
+    const effectiveRecipientName = urlOnly
+      ? recipientName || "there"
+      : recipientName;
+    const effectiveRecipientEmail = urlOnly
+      ? recipientEmail || "prospect@placeholder.local"
+      : recipientEmail;
+
+    if (
+      !effectiveRecipientName ||
+      !effectiveRecipientEmail ||
+      !goal ||
+      !tone
+    ) {
+      throw new Error("All fields are required for email generation");
     }
 
     // Use mock mode if enabled (for testing without API credits)
     if (USE_MOCK_MODE) {
       await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API delay
       return generateMockDrafts({
-        recipientName,
-        recipientEmail,
+        recipientName: effectiveRecipientName,
+        recipientEmail: effectiveRecipientEmail,
         context: formData
-          ? `[Mock: form data for ${formData.companyName}]`
+          ? `[Mock: ${formData.prospectSourceUrl || formData.companyName || "draft"}]`
           : context,
         goal,
         tone,
@@ -54,8 +71,8 @@ export async function generateEmailDrafts({
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        recipientName,
-        recipientEmail,
+        recipientName: effectiveRecipientName,
+        recipientEmail: effectiveRecipientEmail,
         formData: formData || undefined,
         context: context || undefined,
         goal,

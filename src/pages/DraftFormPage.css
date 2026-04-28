@@ -107,36 +107,11 @@
   letter-spacing: 0.02em;
 }
 
-.section-note {
-  color: var(--brand-primary-strong);
-  font-size: 14px;
-  margin: 0 0 18px 0;
-  font-style: italic;
-  background: rgba(102, 126, 234, 0.12);
-  border-radius: 6px;
-  padding: 8px 12px;
-}
-
 .field-note {
   color: #718096;
   font-size: 12px;
   font-weight: 400;
   margin-left: 6px;
-}
-
-.word-count {
-  display: block;
-  font-size: 12px;
-  margin-top: 4px;
-  font-weight: 500;
-}
-
-.word-count-valid {
-  color: #48bb78;
-}
-
-.word-count-error {
-  color: #f56565;
 }
 
 /* Character count for required fields */
@@ -146,10 +121,6 @@
   color: #718096;
   margin-top: 4px;
   font-weight: 400;
-}
-
-.char-count-error {
-  color: #f56565;
 }
 
 /* Draft character count */
@@ -166,27 +137,6 @@
   gap: 12px;
 }
 
-.default-text {
-  color: #a0aec0;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  margin-bottom: 12px;
-}
-
-.form-group-spaced {
-  margin-top: 24px;
-}
-
-.prefilled-fields {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--brand-border, #e5e7eb);
-}
-
 @media (max-width: 900px) {
   .form-main {
     padding: 24px 16px;
@@ -200,10 +150,6 @@
 
   .draft-form {
     padding: 24px;
-  }
-
-  .form-row {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -225,37 +171,6 @@
   display: block;
 }
 
-.form-group textarea {
-  resize: vertical;
-  min-height: 100px;
-  font-family: inherit;
-}
-
-.form-hint {
-  color: #a0aec0;
-  font-size: 12px;
-  margin-top: 4px;
-  display: block;
-}
-
-.form-group select {
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 12px;
-  font-size: 14px;
-  background: white;
-  cursor: pointer;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-}
-
-.form-group select:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
 .btn-generate {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -268,8 +183,7 @@
 }
 
 /* Input color update */
-.form-group input,
-.form-group textarea {
+.form-group input {
   color: #2d3748;
   background: #f7fafc;
   border: 1px solid #e2e8f0;
@@ -282,15 +196,13 @@
     box-shadow 0.2s;
 }
 
-.form-group input:focus,
-.form-group textarea:focus {
+.form-group input:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.08);
 }
 
-.form-group input::placeholder,
-.form-group textarea::placeholder {
+.form-group input::placeholder {
   color: #a0aec0;
 }
 
@@ -408,16 +320,6 @@
   letter-spacing: 0.02em;
 }
 
-.section-note {
-  color: #4b5563;
-  font-size: 14px;
-  margin: 0 0 18px 0;
-  font-style: italic;
-  background: #f3f4f6;
-  border-radius: 6px;
-  padding: 8px 12px;
-}
-
 .form-group label {
   color: #22223b;
   font-size: 15px;
@@ -426,8 +328,7 @@
   display: block;
 }
 
-.form-group input,
-.form-group textarea {
+.form-group input {
   color: #2d3748;
   background: #f7fafc;
   border: 1px solid #e2e8f0;
@@ -440,15 +341,13 @@
     box-shadow 0.2s;
 }
 
-.form-group input:focus,
-.form-group textarea:focus {
+.form-group input:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.08);
 }
 
-.form-group input::placeholder,
-.form-group textarea::placeholder {
+.form-group input::placeholder {
   color: #a0aec0;
 }
 
